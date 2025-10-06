@@ -5,10 +5,11 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 
 ## Project Architecture
 - **Backend**: Flask web application
-- **Database**: SQLite (fallback from MySQL configuration)
+- **Database**: SQLite (configured as fallback with automatic initialization)
 - **Frontend**: Server-side rendering with Jinja2 templates
-- **Integration**: SAP API integration for warehouse operations
-- **Authentication**: Flask-Login for user management
+- **Integration**: SAP B1 Service Layer API integration for warehouse operations
+- **Authentication**: Flask-Login with role-based access control
+- **Deployment**: Gunicorn with autoscale deployment configuration
 
 ## Key Features
 - User authentication and role-based access control
@@ -19,7 +20,20 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 - Branch management
 - Quality control dashboard
 
+## Replit Environment Setup
+- **Workflow**: Flask application runs via `uv run python main.py` on port 5000
+- **Dependencies**: Managed via `pyproject.toml` and synchronized with `uv sync`
+- **Database**: SQLite with automatic table creation and default admin user initialization
+- **Default Login**: Username: `admin`, Password: `admin123`
+- **Development Server**: Runs on 0.0.0.0:5000 with Flask debug mode enabled
+- **Production Deployment**: Configured with Gunicorn autoscale deployment (4 workers)
+
 ## Recent Changes
+- **2025-10-06**: Successfully migrated GitHub import to Replit environment
+  - Configured SQLite database with automatic initialization
+  - Set up development workflow with uv package manager
+  - Added deployment configuration using Gunicorn
+  - Fixed login form autocomplete attributes for better browser compatibility
 - **2025-08-12**: Successfully migrated from Replit Agent to Replit environment
 - Database connection configured to fallback to SQLite when MySQL unavailable
 - Security configurations updated for production readiness
