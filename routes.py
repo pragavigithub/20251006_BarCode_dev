@@ -2709,7 +2709,7 @@ def generate_label_qr():
         # Clean QR content format for printing: "SO123456 | ItemCode: 98765"
         qr_data_parts = []
         if po_number:
-            qr_data_parts.append(f"SO{po_number}")
+            qr_data_parts.append(f"{po_number}")
         if item_code:
             qr_data_parts.append(f"ItemCode: {item_code}")
         if batch_number:
