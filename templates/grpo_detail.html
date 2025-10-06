@@ -528,8 +528,8 @@ function addItemToGRPO(itemCode, itemName, uom, warehouseCode, poItemData) {
     selectedPoItemData = {
         itemCode: itemCode,
         itemName: itemName || 'N/A',
-        uom: uom || 'EA',
-        warehouseCode: warehouseCode || 'WH001'
+        uom: uom || 'N/A',
+        warehouseCode: warehouseCode || 'N/A'
     };
     
     document.getElementById('item_code').value = itemCode;
