@@ -57,6 +57,97 @@ def get_warehouses():
             ]
         })
 
+@app.route('/api/get-po-series', methods=['GET'])
+@login_required
+def get_po_series():
+    """Get PO series from SAP B1"""
+    try:
+        sap = SAPIntegration()
+        series_list = sap.get_po_series()
+        
+        return jsonify({
+            'success': True,
+            'series': series_list
+        })
+            
+    except Exception as e:
+        logging.error(f"Error in get_po_series API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-doc-entry', methods=['POST'])
+@login_required
+def get_doc_entry():
+    """Get DocEntry from SAP B1 using series and document number"""
+    try:
+        data = request.get_json()
+        series = data.get('series')
+        doc_num = data.get('doc_num')
+        
+        if not series or not doc_num:
+            return jsonify({
+                'success': False,
+                'error': 'Series and doc_num are required'
+            }), 400
+        
+        sap = SAPIntegration()
+        doc_entry = sap.get_po_doc_entry(series, doc_num)
+        
+        if doc_entry:
+            return jsonify({
+                'success': True,
+                'doc_entry': doc_entry
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'DocEntry not found'
+            }), 404
+            
+    except Exception as e:
+        logging.error(f"Error in get_doc_entry API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-po-by-doc-entry', methods=['POST'])
+@login_required
+def get_po_by_doc_entry():
+    """Get Purchase Order details using DocEntry"""
+    try:
+        data = request.get_json()
+        doc_entry = data.get('doc_entry')
+        
+        if not doc_entry:
+            return jsonify({
+                'success': False,
+                'error': 'doc_entry is required'
+            }), 400
+        
+        sap = SAPIntegration()
+        po_data = sap.get_purchase_order_by_doc_entry(doc_entry)
+        
+        if po_data:
+            return jsonify({
+                'success': True,
+                'po_data': po_data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Purchase Order not found'
+            }), 404
+            
+    except Exception as e:
+        logging.error(f"Error in get_po_by_doc_entry API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/get-batch-numbers', methods=['GET'])
 def get_batch_numbers():
     """Get batch numbers for an item code - matching GRPO functionality"""
