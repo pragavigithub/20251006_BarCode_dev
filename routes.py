@@ -582,6 +582,8 @@ def grpo():
 @login_required
 def create_grpo():
     po_number = request.form['po_number']
+    po_series = request.form.get('po_series', '')
+    doc_entry = request.form.get('doc_entry', '')
     
     # BUSINESS LOGIC CHANGE: Allow multiple GRPOs per PO
     # Each PO should create a NEW GRPO every time (user requirement)
@@ -589,7 +591,14 @@ def create_grpo():
     
     # Check if PO exists in SAP
     sap = SAPIntegration()
-    po_data = sap.get_purchase_order(po_number)
+    
+    # Use DocEntry if provided, otherwise fall back to PO number
+    if doc_entry:
+        logging.info(f"Fetching PO using DocEntry: {doc_entry}")
+        po_data = sap.get_purchase_order_by_doc_entry(int(doc_entry))
+    else:
+        logging.info(f"Fetching PO using PO Number: {po_number}")
+        po_data = sap.get_purchase_order(po_number)
     
     if not po_data:
         flash('Purchase Order not found in SAP B1.', 'error')
@@ -650,6 +659,8 @@ def create_grpo():
     # Create GRPO document with PO details and generated document number
     grpo_doc = GRPODocument(
         po_number=po_number,
+        po_series=po_series if po_series else None,
+        po_doc_entry=int(doc_entry) if doc_entry else po_data.get('DocEntry'),
         sap_document_number=grpo_number,  # Use generated GRPO number
         supplier_code=po_data.get('CardCode'),
         supplier_name=po_data.get('CardName'),

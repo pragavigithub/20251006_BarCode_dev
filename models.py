@@ -127,6 +127,8 @@ class GRPODocument(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     po_number = db.Column(db.String(20), nullable=False)
+    po_series = db.Column(db.String(20), nullable=True)  # SAP PO Series number
+    po_doc_entry = db.Column(db.Integer, nullable=True)  # SAP PO DocEntry number
     sap_document_number = db.Column(db.String(20), nullable=True)
     supplier_code = db.Column(db.String(50), nullable=True)  # CardCode from SAP
     supplier_name = db.Column(db.String(200), nullable=True)
