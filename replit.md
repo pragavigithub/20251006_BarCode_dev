@@ -36,6 +36,15 @@ A Flask-based warehouse management system with SAP integration for barcode scann
   - Fixed login form autocomplete attributes for better browser compatibility
   - **Changed credentials loading**: Now reads from JSON file (C:\tmp\sap_login\credential.json) instead of .env files
   - Created credentials_loader.py module for flexible credential management with environment variable fallback
+  - **Enhanced GRPO Module with SAP Series Integration**:
+    - Added PO Series dropdown selection in GRPO creation modal
+    - Implemented SAP B1 SQLQueries API integration for fetching PO series (Get_PO_Series)
+    - Added DocEntry retrieval based on series and document number (Get_PO_DocEntry)
+    - Created three new API endpoints: /api/get-po-series, /api/get-doc-entry, /api/get-po-by-doc-entry
+    - Updated GRPODocument model with po_series and po_doc_entry fields
+    - Enhanced GRPO creation workflow to use DocEntry for more reliable PO retrieval
+    - Created MySQL migration script (mysql_grpo_series_migration.py) for database schema updates
+    - Improved frontend validation with real-time PO verification
 - **2025-08-12**: Successfully migrated from Replit Agent to Replit environment
 - Database connection configured to fallback to SQLite when MySQL unavailable
 - Security configurations updated for production readiness
