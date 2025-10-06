@@ -6,15 +6,14 @@ from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Load environment variables from .env file if it exists
+# Load credentials from JSON file instead of .env
 try:
-    from dotenv import load_dotenv
-    load_dotenv()
-    logging.info("Environment variables loaded from .env file")
-except ImportError:
-    logging.info("python-dotenv not installed, using system environment variables")
+    from credentials_loader import load_credentials
+    credentials = load_credentials()
+    logging.info("✅ Credentials loaded from JSON file or environment variables")
 except Exception as e:
-    logging.warning(f"Could not load .env file: {e}")
+    logging.warning(f"⚠️ Could not load credentials: {e}")
+    logging.info("Using system environment variables as fallback")
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)

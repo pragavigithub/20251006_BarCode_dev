@@ -34,6 +34,8 @@ A Flask-based warehouse management system with SAP integration for barcode scann
   - Set up development workflow with uv package manager
   - Added deployment configuration using Gunicorn
   - Fixed login form autocomplete attributes for better browser compatibility
+  - **Changed credentials loading**: Now reads from JSON file (C:\tmp\sap_login\credential.json) instead of .env files
+  - Created credentials_loader.py module for flexible credential management with environment variable fallback
 - **2025-08-12**: Successfully migrated from Replit Agent to Replit environment
 - Database connection configured to fallback to SQLite when MySQL unavailable
 - Security configurations updated for production readiness
@@ -125,11 +127,36 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 ## User Preferences
 - None specified yet
 
-## Environment Variables
+## Credentials Configuration
+
+### JSON File (Preferred Method)
+The application now reads credentials from a JSON file instead of .env files. Place your credentials in one of these locations:
+- **Windows**: `C:\tmp\sap_login\credential.json`
+- **Linux/Replit**: `/tmp/sap_login/credential.json`
+
+**credential.json format:**
+```json
+{
+   "SAP_B1_SERVER":"https://192.168.0.109:50000",
+   "SAP_B1_USERNAME":"manager",
+   "SAP_B1_PASSWORD":"1422",
+   "SAP_B1_COMPANY_DB":"EINV-TESTDB-LIVE-HUST",
+   "MYSQL_HOST":"localhost",
+   "MYSQL_PORT":"3306",
+   "MYSQL_USER":"root",
+   "MYSQL_PASSWORD":"root123",
+   "MYSQL_DATABASE":"it_lobby",
+   "DATABASE_URL":"mysql+pymysql://root:root123@localhost:3306/it_lobby",
+   "SESSION_SECRET":"WMS-Secret-Key-20250915-Change-In-Production"
+}
+```
+
+### Environment Variables (Fallback)
+If the JSON file is not found, the application falls back to environment variables:
 - `SESSION_SECRET`: Flask session secret key
 - `DATABASE_URL`: Database connection URL
-- `MYSQL_*`: MySQL configuration variables (optional)
-- SAP integration variables (as needed)
+- `MYSQL_*`: MySQL configuration variables
+- `SAP_B1_*`: SAP integration variables
 
 ## Security Notes
 - Client/server separation maintained
