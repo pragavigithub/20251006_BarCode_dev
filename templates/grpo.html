@@ -191,16 +191,25 @@
                 <h5 class="modal-title" id="createGRPOModalLabel">Create GRN</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('create_grpo') }}">
+            <form method="POST" action="{{ url_for('create_grpo') }}" id="createGRPOForm">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="po_number" class="form-label">PO Number</label>
+                        <label for="po_series" class="form-label">PO Series</label>
+                        <select class="form-select" id="po_series" name="po_series" required>
+                            <option value="">Select Series</option>
+                        </select>
+                        <small class="text-muted">Select the purchase order series</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="po_number" class="form-label">PO Document Number</label>
                         <div class="input-group">
                             <input type="text" class="form-control" id="po_number" name="po_number" required>
                             <button class="btn btn-outline-secondary" type="button" onclick="scanPO()">
                                 <i data-feather="camera"></i> Scan
                             </button>
                         </div>
+                        <small class="text-muted">Enter the document number</small>
                     </div>
                     
                     <div class="scanner-container" id="poScannerContainer" style="display: none;">
@@ -209,10 +218,12 @@
                     </div>
                     
                     <div id="poValidationResult" style="display: none;"></div>
+                    
+                    <input type="hidden" id="doc_entry" name="doc_entry" value="">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create GRN</button>
+                    <button type="submit" class="btn btn-primary" id="createGRPOBtn">Create GRN</button>
                 </div>
             </form>
         </div>
@@ -300,5 +311,85 @@ document.getElementById('createGRPOModal').addEventListener('hidden.bs.modal', f
     stopBarcodeScanner();
     document.getElementById('poScannerContainer').style.display = 'none';
 });
+
+document.getElementById('createGRPOModal').addEventListener('shown.bs.modal', function () {
+    loadPOSeries();
+});
+
+function loadPOSeries() {
+    fetch('/api/get-po-series')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.series) {
+                const seriesSelect = document.getElementById('po_series');
+                seriesSelect.innerHTML = '<option value="">Select Series</option>';
+                
+                data.series.forEach(series => {
+                    const option = document.createElement('option');
+                    option.value = series.Series;
+                    option.textContent = `${series.SeriesName} (${series.Series})`;
+                    seriesSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading PO series:', error);
+        });
+}
+
+document.getElementById('po_number').addEventListener('blur', function() {
+    const series = document.getElementById('po_series').value;
+    const docNum = this.value;
+    
+    if (series && docNum) {
+        getDocEntry(series, docNum);
+    }
+});
+
+document.getElementById('po_series').addEventListener('change', function() {
+    const series = this.value;
+    const docNum = document.getElementById('po_number').value;
+    
+    if (series && docNum) {
+        getDocEntry(series, docNum);
+    }
+});
+
+function getDocEntry(series, docNum) {
+    fetch('/api/get-doc-entry', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            series: series,
+            doc_num: docNum
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.doc_entry) {
+            document.getElementById('doc_entry').value = data.doc_entry;
+            document.getElementById('poValidationResult').innerHTML = 
+                '<div class="alert alert-success"><i data-feather="check-circle"></i> PO found! DocEntry: ' + data.doc_entry + '</div>';
+            document.getElementById('poValidationResult').style.display = 'block';
+            feather.replace();
+        } else {
+            document.getElementById('doc_entry').value = '';
+            document.getElementById('poValidationResult').innerHTML = 
+                '<div class="alert alert-danger"><i data-feather="x-circle"></i> PO not found. Please check series and document number.</div>';
+            document.getElementById('poValidationResult').style.display = 'block';
+            feather.replace();
+        }
+    })
+    .catch(error => {
+        console.error('Error getting DocEntry:', error);
+        document.getElementById('doc_entry').value = '';
+        document.getElementById('poValidationResult').innerHTML = 
+            '<div class="alert alert-danger"><i data-feather="x-circle"></i> Error validating PO. Please try again.</div>';
+        document.getElementById('poValidationResult').style.display = 'block';
+        feather.replace();
+    });
+}
 </script>
 {% endblock %}
