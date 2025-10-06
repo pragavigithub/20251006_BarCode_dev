@@ -451,7 +451,7 @@ class BinItem(db.Model):
     quantity = db.Column(db.Float, default=0)
     available_quantity = db.Column(db.Float, default=0)
     committed_quantity = db.Column(db.Float, default=0)
-    uom = db.Column(db.String(20), default='EA')
+    uom = db.Column(db.String(20), default='')
     expiry_date = db.Column(db.Date, nullable=True)
     manufacturing_date = db.Column(db.Date, nullable=True)
     admission_date = db.Column(db.Date, nullable=True)
