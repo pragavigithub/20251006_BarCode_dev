@@ -198,7 +198,7 @@ with app.app_context():
             default_branch.phone = '123-456-7890'
             default_branch.email = 'main@company.com'
             default_branch.manager_name = 'Branch Manager'
-            default_branch.active = True
+            default_branch.is_active = True
             default_branch.is_default = True
             db.session.add(default_branch)
             logging.info("Default branch created")
