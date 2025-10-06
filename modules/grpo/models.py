@@ -45,7 +45,7 @@ class GRPOItem(db.Model):
     line_total = db.Column(db.Numeric(15, 2))
     unit_of_measure = db.Column(db.String(10))
     warehouse_code = db.Column(db.String(10))
-    bin_location = db.Column(db.String(20))
+    bin_location = db.Column(db.String(200))
     batch_number = db.Column(db.String(50))
     serial_number = db.Column(db.String(50))
     expiry_date = db.Column(db.Date)

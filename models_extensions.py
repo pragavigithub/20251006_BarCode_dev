@@ -9,8 +9,8 @@ class Branch(db.Model):
     id = db.Column(db.String(10), primary_key=True)  # Branch code like 'BR001'
     name = db.Column(db.String(100), nullable=True)  # For backward compatibility
     description = db.Column(db.String(255), nullable=True)
-    branch_code = db.Column(db.String(10), unique=True, nullable=False)  # 01, 02, etc.
-    branch_name = db.Column(db.String(100), nullable=False)  # Main Branch, etc.
+    branch_code = db.Column(db.String(10), unique=True, nullable=True)  # 01, 02, etc.
+    branch_name = db.Column(db.String(100), nullable=True)  # Main Branch, etc.
     address = db.Column(db.String(255), nullable=True)
     city = db.Column(db.String(50), nullable=True)
     state = db.Column(db.String(50), nullable=True)
@@ -20,7 +20,7 @@ class Branch(db.Model):
     email = db.Column(db.String(120), nullable=True)
     manager_name = db.Column(db.String(100), nullable=True)
     warehouse_codes = db.Column(db.Text, nullable=True)  # JSON array of warehouse codes
-    active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
