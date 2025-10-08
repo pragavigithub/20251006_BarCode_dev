@@ -149,3 +149,97 @@ def register_api_routes(app):
         except Exception as e:
             logging.error(f"Error in get_item_name API: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/get-invt-series', methods=['GET'])
+    def get_invt_series():
+        """Get Inventory Transfer document series for dropdown selection"""
+        try:
+            sap = SAPIntegration()
+            series_list = sap.get_invt_series()
+            
+            if series_list:
+                return jsonify({
+                    'success': True,
+                    'series': series_list
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No series found',
+                    'series': []
+                })
+                
+        except Exception as e:
+            logging.error(f"Error in get_invt_series API: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'series': []
+            }), 500
+
+    @app.route('/api/get-invt-docentry', methods=['GET'])
+    def get_invt_docentry():
+        """Get Inventory Transfer DocEntry based on series and DocNum"""
+        try:
+            series = request.args.get('series')
+            doc_num = request.args.get('doc_num')
+            
+            if not series or not doc_num:
+                return jsonify({
+                    'success': False,
+                    'error': 'Both series and doc_num are required'
+                }), 400
+            
+            sap = SAPIntegration()
+            doc_entry = sap.get_invt_doc_entry(series, doc_num)
+            
+            if doc_entry:
+                return jsonify({
+                    'success': True,
+                    'doc_entry': doc_entry
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'No DocEntry found for series {series} and DocNum {doc_num}'
+                }), 404
+                
+        except Exception as e:
+            logging.error(f"Error in get_invt_docentry API: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/get-invt-details', methods=['GET'])
+    def get_invt_details():
+        """Get Inventory Transfer Request details by DocEntry"""
+        try:
+            doc_entry = request.args.get('doc_entry')
+            
+            if not doc_entry:
+                return jsonify({
+                    'success': False,
+                    'error': 'doc_entry is required'
+                }), 400
+            
+            sap = SAPIntegration()
+            invt_data = sap.get_inventory_transfer_request_by_doc_entry(doc_entry)
+            
+            if invt_data:
+                return jsonify({
+                    'success': True,
+                    'data': invt_data
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'No Inventory Transfer Request found for DocEntry {doc_entry}'
+                }), 404
+                
+        except Exception as e:
+            logging.error(f"Error in get_invt_details API: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500

@@ -305,6 +305,88 @@ class SAPIntegration:
             )
         return []
 
+    def get_invt_series(self):
+        """Get Inventory Transfer series from SAP B1 using SQLQueries"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning empty series list")
+            return []
+
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_INVT_Series')/List"
+            response = self.session.post(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                series_list = data.get('value', [])
+                logging.info(f"✅ Retrieved {len(series_list)} INVT series from SAP")
+                return series_list
+            else:
+                logging.warning(f"Failed to get INVT series: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error fetching INVT series: {str(e)}")
+            return []
+
+    def get_invt_doc_entry(self, series, doc_num):
+        """Get Inventory Transfer DocEntry from SAP B1 using series and document number"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, cannot get DocEntry")
+            return None
+
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_INVT_DocEntry')/List"
+            payload = {
+                "ParamList": f"docNum='{doc_num}'&series='{series}'"
+            }
+            
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('value', [])
+                if results:
+                    doc_entry = results[0].get('DocEntry')
+                    logging.info(f"✅ Found INVT DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num}")
+                    return doc_entry
+                else:
+                    logging.warning(f"No INVT DocEntry found for Series: {series}, DocNum: {doc_num}")
+                    return None
+            else:
+                logging.warning(f"Failed to get INVT DocEntry: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error fetching INVT DocEntry: {str(e)}")
+            return None
+
+    def get_inventory_transfer_request_by_doc_entry(self, doc_entry):
+        """Get inventory transfer request details from SAP B1 using DocEntry"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning None")
+            return None
+
+        try:
+            url = f"{self.base_url}/b1s/v1/InventoryTransferRequests?$filter=DocEntry eq {doc_entry}"
+            response = self.session.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('value'):
+                    invt_data = data['value'][0]
+                    logging.info(f"✅ Retrieved Inventory Transfer Request DocEntry: {doc_entry}, DocNum: {invt_data.get('DocNum')}")
+                    return invt_data
+                else:
+                    logging.warning(f"No Inventory Transfer Request found for DocEntry: {doc_entry}")
+                    return None
+            else:
+                logging.warning(f"Failed to get Inventory Transfer Request by DocEntry: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error fetching Inventory Transfer Request by DocEntry {doc_entry}: {str(e)}")
+            return None
+
     def get_item_master(self, item_code):
         """Get item master data from SAP B1"""
         if not self.ensure_logged_in():
