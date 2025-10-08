@@ -620,14 +620,17 @@ def serial_create():
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        # Auto-generate transfer number
-        transfer_number = generate_transfer_number()
+        # Get series and doc_num from form
+        series = request.form.get('series')
+        doc_num = request.form.get('doc_num')
+        doc_entry = request.form.get('doc_entry')
         from_warehouse = request.form.get('from_warehouse')
         to_warehouse = request.form.get('to_warehouse')
         notes = request.form.get('notes', '')
+        transfer_data_json = request.form.get('transfer_data', '{}')
         
-        if not all([from_warehouse, to_warehouse]):
-            flash('From Warehouse and To Warehouse are required', 'error')
+        if not all([series, doc_num, from_warehouse, to_warehouse]):
+            flash('Series, Document Number, and Warehouses are required', 'error')
             return render_template('serial_create_transfer.html')
         
         # **ENHANCED WAREHOUSE VALIDATION** - Prevent same from/to warehouse
@@ -635,7 +638,10 @@ def serial_create():
             flash('From Warehouse and To Warehouse cannot be the same. Please select different warehouses.', 'error')
             return render_template('serial_create_transfer.html')
         
-        # Create new transfer with auto-generated number
+        # Auto-generate transfer number
+        transfer_number = generate_transfer_number()
+        
+        # Create new transfer with series and doc_num info
         transfer = SerialNumberTransfer(
             transfer_number=transfer_number,
             user_id=current_user.id,
@@ -648,8 +654,8 @@ def serial_create():
         db.session.add(transfer)
         db.session.commit()
         
-        logging.info(f"✅ Serial Number Transfer {transfer_number} created by user {current_user.username}")
-        flash(f'Serial Number Transfer {transfer_number} created successfully', 'success')
+        logging.info(f"✅ Serial Number Transfer {transfer_number} created by user {current_user.username} for SAP DocNum {doc_num} (Series: {series}, DocEntry: {doc_entry})")
+        flash(f'Serial Number Transfer {transfer_number} created successfully for SAP Document {doc_num}', 'success')
         return redirect(url_for('inventory_transfer.serial_detail', transfer_id=transfer.id))
     
     return render_template('serial_create_transfer.html')
