@@ -313,8 +313,10 @@ class SAPIntegration:
 
         try:
             url = f"{self.base_url}/b1s/v1/SQLQueries('Get_INVT_Series')/List"
-            response = self.session.post(url, timeout=30)
-            
+            params = {
+            }
+            response = self.session.post(url,params=params, timeout=30)
+            print(response)
             if response.status_code == 200:
                 data = response.json()
                 series_list = data.get('value', [])
