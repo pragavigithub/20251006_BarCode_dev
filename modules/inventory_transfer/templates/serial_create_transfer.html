@@ -25,31 +25,44 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" id="createTransferForm">
                         <div class="row">
-<!--                            <div class="col-md-6">-->
-<!--                                <div class="alert alert-info">-->
-<!--                                    <i data-feather="info"></i>-->
-<!--                                    <strong>Transfer Number:</strong> Will be automatically generated (Format: ST-YYYYMMDD-XXXX)-->
-<!--                                </div>-->
-<!--                            </div>-->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="series" class="form-label">Document Series <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="series" name="series" required>
+                                        <option value="">Select series...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="doc_num" class="form-label">Document Number <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="doc_num" name="doc_num" 
+                                           placeholder="Enter Document Number" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="from_warehouse" class="form-label">From Warehouse <span class="text-danger">*</span></label>
-                                    <select class="form-control" id="from_warehouse" name="from_warehouse" required>
-                                        <option value="">Select warehouse...</option>
-                                    </select>
+                                    <input type="text" class="form-control" id="from_warehouse" name="from_warehouse" 
+                                           placeholder="Will be auto-filled from SAP" readonly>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="to_warehouse" class="form-label">To Warehouse <span class="text-danger">*</span></label>
-                                    <select class="form-control" id="to_warehouse" name="to_warehouse" required>
-                                        <option value="">Select warehouse...</option>
-                                    </select>
+                                    <input type="text" class="form-control" id="to_warehouse" name="to_warehouse" 
+                                           placeholder="Will be auto-filled from SAP" readonly>
                                 </div>
                             </div>
                         </div>
+                        
+                        <input type="hidden" id="doc_entry" name="doc_entry">
+                        <input type="hidden" id="transfer_data" name="transfer_data">
 
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
@@ -93,66 +106,110 @@
 
 {% block scripts %}
 <script>
-// Load warehouses from API on page load
+let transferData = null;
+
+// Load series from API on page load
 document.addEventListener('DOMContentLoaded', function() {
-    loadWarehouses();
+    loadSeries();
+    
+    // Add event listener for DocNum input
+    document.getElementById('doc_num').addEventListener('change', fetchDocEntry);
 });
 
-function loadWarehouses() {
-    fetch('/api/warehouses')
+function loadSeries() {
+    fetch('/api/get-invt-series')
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.warehouses) {
-                const fromWarehouse = document.getElementById('from_warehouse');
-                const toWarehouse = document.getElementById('to_warehouse');
+            if (data.success && data.series) {
+                const seriesSelect = document.getElementById('series');
+                seriesSelect.innerHTML = '<option value="">Select series...</option>';
 
-                // Clear existing options except first one
-                fromWarehouse.innerHTML = '<option value="">Select warehouse...</option>';
-                toWarehouse.innerHTML = '<option value="">Select warehouse...</option>';
-
-                // Add warehouse options
-                data.warehouses.forEach(warehouse => {
-                    const option1 = new Option(
-                        `${warehouse.WarehouseCode} - ${warehouse.WarehouseName}`,
-                        warehouse.WarehouseCode
+                data.series.forEach(series => {
+                    const option = new Option(
+                        `${series.SeriesName} (${series.Series})`,
+                        series.Series
                     );
-                    const option2 = option1.cloneNode(true);
-
-                    fromWarehouse.appendChild(option1);
-                    toWarehouse.appendChild(option2);
+                    seriesSelect.appendChild(option);
                 });
 
-                console.log('Loaded', data.warehouses.length, 'warehouses');
+                console.log('Loaded', data.series.length, 'series');
             } else {
-                console.error('Failed to load warehouses:', data.error || 'Unknown error');
-                // Add fallback warehouses
-                addFallbackWarehouses();
+                console.error('Failed to load series:', data.error || 'Unknown error');
+                alert('Failed to load document series. Please try again.');
             }
         })
         .catch(error => {
-            console.error('Error loading warehouses:', error);
-            addFallbackWarehouses();
+            console.error('Error loading series:', error);
+            alert('Error loading document series. Please check your connection.');
         });
 }
 
-function addFallbackWarehouses() {
-    const fallbackWarehouses = [
-
-    ];
-
+function fetchDocEntry() {
+    const series = document.getElementById('series').value;
+    const docNum = document.getElementById('doc_num').value;
+    
+    if (!series || !docNum) {
+        return;
+    }
+    
+    console.log('Fetching DocEntry for Series:', series, 'DocNum:', docNum);
+    
+    // Show loading state
     const fromWarehouse = document.getElementById('from_warehouse');
     const toWarehouse = document.getElementById('to_warehouse');
-
-    fallbackWarehouses.forEach(warehouse => {
-        const option1 = new Option(
-            `${warehouse.WarehouseCode} - ${warehouse.WarehouseName}`,
-            warehouse.WarehouseCode
-        );
-        const option2 = option1.cloneNode(true);
-
-        fromWarehouse.appendChild(option1);
-        toWarehouse.appendChild(option2);
-    });
+    fromWarehouse.value = 'Loading...';
+    toWarehouse.value = 'Loading...';
+    
+    // First get DocEntry
+    fetch(`/api/get-invt-docentry?series=${series}&doc_num=${docNum}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.doc_entry) {
+                console.log('Got DocEntry:', data.doc_entry);
+                document.getElementById('doc_entry').value = data.doc_entry;
+                
+                // Now fetch transfer details using DocEntry
+                return fetch(`/api/get-invt-details?doc_entry=${data.doc_entry}`);
+            } else {
+                throw new Error(data.error || 'Failed to get DocEntry');
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data) {
+                transferData = data.data;
+                console.log('Got transfer data:', transferData);
+                
+                // Fill in warehouse data
+                fromWarehouse.value = transferData.FromWarehouse || '';
+                toWarehouse.value = transferData.ToWarehouse || '';
+                
+                // Store transfer data as JSON
+                document.getElementById('transfer_data').value = JSON.stringify(transferData);
+                
+                console.log('Transfer request loaded successfully');
+            } else {
+                throw new Error(data.error || 'Failed to get transfer details');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching transfer data:', error);
+            alert(`Error: ${error.message}`);
+            fromWarehouse.value = '';
+            toWarehouse.value = '';
+            document.getElementById('doc_entry').value = '';
+            document.getElementById('transfer_data').value = '';
+        });
 }
+
+// Add event listener for series change to clear fields
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('series').addEventListener('change', function() {
+        document.getElementById('from_warehouse').value = '';
+        document.getElementById('to_warehouse').value = '';
+        document.getElementById('doc_entry').value = '';
+        document.getElementById('transfer_data').value = '';
+    });
+});
 </script>
 {% endblock %}
