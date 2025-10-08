@@ -316,7 +316,6 @@ class SAPIntegration:
             params = {
             }
             response = self.session.post(url,params=params, timeout=30)
-            print(response)
             if response.status_code == 200:
                 data = response.json()
                 series_list = data.get('value', [])
