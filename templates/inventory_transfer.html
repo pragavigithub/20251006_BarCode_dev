@@ -194,15 +194,26 @@
             <form method="POST" action="{{ url_for('create_inventory_transfer') }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="transfer_request_number" class="form-label">Transfer Request Number</label>
+                        <label for="invt_series" class="form-label">Document Series <span class="text-danger">*</span></label>
+                        <select class="form-select" id="invt_series" name="invt_series" required>
+                            <option value="">Select Series</option>
+                        </select>
+                        <small class="form-text text-muted">Select the document series for the transfer request</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="doc_num" class="form-label">Document Number <span class="text-danger">*</span></label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="transfer_request_number" name="transfer_request_number" required>
-                            <button class="btn btn-outline-secondary" type="button" onclick="scanTransferRequest()">
+                            <input type="text" class="form-control" id="doc_num" name="doc_num" placeholder="Enter DocNum" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="scanDocNum()">
                                 <i data-feather="camera"></i> Scan
                             </button>
                         </div>
+                        <small class="form-text text-muted">Enter the document number (DocNum)</small>
                     </div>
-                    
+
+                    <input type="hidden" id="transfer_request_number" name="transfer_request_number">
+                    <input type="hidden" id="doc_entry" name="doc_entry">
                     
                     <div class="scanner-container" id="transferScannerContainer" style="display: none;">
                         <video id="transferScanVideo" class="scanner-video" autoplay></video>
@@ -240,19 +251,120 @@ function changeRowsPerPageTransfer(perPage) {
     window.location.href = '{{ url_for("inventory_transfer") }}?' + urlParams.toString();
 }
 
-function scanTransferRequest() {
+// Load INVT series when modal is opened
+document.getElementById('createTransferModal').addEventListener('shown.bs.modal', async function () {
+    await loadInvtSeries();
+});
+
+async function loadInvtSeries() {
+    try {
+        const response = await fetch('/api/get-invt-series');
+        const data = await response.json();
+        
+        const seriesSelect = document.getElementById('invt_series');
+        seriesSelect.innerHTML = '<option value="">Select Series</option>';
+        
+        if (data.success && data.series) {
+            data.series.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.Series;
+                option.textContent = `${item.SeriesName} (${item.Series})`;
+                seriesSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading INVT series:', error);
+    }
+}
+
+// When both series and doc_num are entered, fetch DocEntry
+async function fetchDocEntry() {
+    const series = document.getElementById('invt_series').value;
+    const docNum = document.getElementById('doc_num').value.trim();
+    
+    if (!series || !docNum) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/get-invt-docentry?series=${series}&doc_num=${docNum}`);
+        const data = await response.json();
+        
+        if (data.success && data.doc_entry) {
+            document.getElementById('doc_entry').value = data.doc_entry;
+            // Fetch document details to validate status
+            await validateInvtDocument(data.doc_entry, docNum);
+        } else {
+            showValidationResult('danger', `No document found for Series ${series} and DocNum ${docNum}`);
+            document.getElementById('doc_entry').value = '';
+        }
+    } catch (error) {
+        console.error('Error fetching DocEntry:', error);
+        showValidationResult('danger', 'Error fetching document details');
+    }
+}
+
+async function validateInvtDocument(docEntry, docNum) {
+    try {
+        const response = await fetch(`/api/get-invt-details?doc_entry=${docEntry}`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            const invtData = data.data;
+            const docStatus = invtData.DocumentStatus;
+            
+            // Check if document is open (bost_Open)
+            if (docStatus !== 'bost_Open') {
+                showValidationResult('danger', `Document ${docNum} is closed and cannot be processed. Only open documents (bost_Open) are allowed.`);
+                document.getElementById('doc_entry').value = '';
+                return;
+            }
+            
+            // Document is valid and open
+            document.getElementById('transfer_request_number').value = docNum;
+            
+            showValidationResult('success', `
+                <strong>Valid Transfer Request:</strong> ${docNum} (DocEntry: ${docEntry})
+                <br><small>From: ${invtData.FromWarehouse || 'N/A'} → To: ${invtData.ToWarehouse || 'N/A'}</small>
+                <br><small>Items: ${invtData.StockTransferLines ? invtData.StockTransferLines.length : 0}</small>
+                <br><small>Status: Open</small>
+            `);
+        } else {
+            showValidationResult('danger', 'Could not validate document details');
+        }
+    } catch (error) {
+        console.error('Error validating INVT document:', error);
+        showValidationResult('danger', 'Error validating document');
+    }
+}
+
+function showValidationResult(type, message) {
+    const resultDiv = document.getElementById('transferValidationResult');
+    resultDiv.innerHTML = `
+        <div class="alert alert-${type}">
+            ${message}
+        </div>
+    `;
+    resultDiv.style.display = 'block';
+}
+
+// Event listeners for series and doc_num changes
+document.getElementById('invt_series').addEventListener('change', fetchDocEntry);
+document.getElementById('doc_num').addEventListener('blur', fetchDocEntry);
+
+function scanDocNum() {
     const container = document.getElementById('transferScannerContainer');
     const video = document.getElementById('transferScanVideo');
     
     container.style.display = 'block';
     
     startBarcodeScanner('transferScanVideo', function(code) {
-        document.getElementById('transfer_request_number').value = code;
+        document.getElementById('doc_num').value = code;
         container.style.display = 'none';
         stopBarcodeScanner();
         
-        // Validate transfer request
-        validateTransferRequest(code);
+        // Trigger DocEntry fetch
+        fetchDocEntry();
     });
 }
 
@@ -261,56 +373,18 @@ document.getElementById('searchInput').addEventListener('input', function () {
     clearTimeout(window._grpoSearchTimeout);
     window._grpoSearchTimeout = setTimeout(() => {
         form.submit();
-    }, 500); // Delay in milliseconds to prevent submitting too quickly
-});
-
-async function validateTransferRequest(requestNumber) {
-    try {
-        const response = await fetch('/api/validate_transfer_request', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ request_number: requestNumber })
-        });
-        
-        const data = await response.json();
-        const resultDiv = document.getElementById('transferValidationResult');
-        
-        if (data.valid) {
-            resultDiv.innerHTML = `
-                <div class="alert alert-success">
-                    <strong>Valid Transfer Request:</strong> ${requestNumber}
-                    <br><small>Items: ${data.items_count || 'N/A'}</small>
-                    <br><small>From: ${data.from_warehouse || 'N/A'} → To: ${data.to_warehouse || 'N/A'}</small>
-                </div>
-            `;
-        } else {
-            resultDiv.innerHTML = `
-                <div class="alert alert-danger">
-                    <strong>Invalid Transfer Request:</strong> ${data.error}
-                </div>
-            `;
-        }
-        
-        resultDiv.style.display = 'block';
-    } catch (error) {
-        console.error('Error validating transfer request:', error);
-    }
-}
-
-// Auto-validate when transfer request number is entered manually
-document.getElementById('transfer_request_number').addEventListener('blur', function() {
-    const requestNumber = this.value.trim();
-    if (requestNumber) {
-        validateTransferRequest(requestNumber);
-    }
+    }, 500);
 });
 
 // Clean up scanner when modal is closed
 document.getElementById('createTransferModal').addEventListener('hidden.bs.modal', function () {
     stopBarcodeScanner();
     document.getElementById('transferScannerContainer').style.display = 'none';
+    document.getElementById('transferValidationResult').style.display = 'none';
+    document.getElementById('invt_series').value = '';
+    document.getElementById('doc_num').value = '';
+    document.getElementById('transfer_request_number').value = '';
+    document.getElementById('doc_entry').value = '';
 });
 </script>
 {% endblock %}
