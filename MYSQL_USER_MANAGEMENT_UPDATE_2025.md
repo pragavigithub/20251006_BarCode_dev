@@ -9,7 +9,7 @@ User Management module improvements implemented on October 9, 2025. **No databas
 - **Fixed User Deactivation Issue**: Corrected template bug where `user.is_active` was used instead of `user.active`
   - The database schema was already correct with `active` field
   - Templates were using the wrong field name causing deactivation to appear broken
-  - Fixed in: `templates/user_management.html`
+  - Fixed in: `templates/user_management.html`, `templates/edit_user.html` (Oct 9, 2025)
 
 ### 2. Security Improvements
 - **Removed Delete User Functionality**: Users can now only be deactivated, not permanently deleted
@@ -85,6 +85,7 @@ class User(UserMixin, db.Model):
 
 ### Templates
 - `templates/user_management.html` - Fixed active/is_active bug, removed delete buttons
+- `templates/edit_user.html` - Fixed active/is_active bug (Oct 9, 2025)
 - `templates/base.html` - Added profile links to navigation
 - `templates/user_profile.html` - NEW: User profile view
 - `templates/edit_profile.html` - NEW: User profile edit

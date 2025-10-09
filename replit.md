@@ -19,7 +19,10 @@ The Inventory Transfer module now includes enhanced document series selection:
 
 ### User Management Module Improvements (Oct 9, 2025)
 Enhanced user management with bug fixes, security improvements, and new self-service profile features:
-- **Bug Fix**: Corrected user deactivation issue (template was using `is_active` instead of `user.active`)
+- **Bug Fix**: Corrected user deactivation issue in multiple templates
+  - Fixed `templates/user_management.html`: Changed `is_active` to `user.active`
+  - Fixed `templates/edit_user.html`: Changed `user.is_active` to `user.active` (Oct 9, 2025)
+  - Database schema already used correct `active` field
 - **Security**: Removed delete user functionality - users can only be deactivated (preserves audit trail)
 - **User Profile System**: Added self-service profile management for all users
   - `/profile` route: View own profile
@@ -28,6 +31,18 @@ Enhanced user management with bug fixes, security improvements, and new self-ser
 - **Access Control**: Admin retains full user management; regular users can only view/edit their own profile
 - **Error Handling**: Comprehensive validation for profile updates including duplicate email detection and database error recovery
 - **No Schema Changes**: All improvements are code-only updates with no database migrations required
+
+### Camera Scanning - Environment Differences (Oct 9, 2025)
+Camera/barcode scanning modules work correctly in Replit but require specific configuration for local development:
+- **Issue**: Browsers require HTTPS or localhost for camera access (security policy)
+- **Replit**: Works automatically (uses HTTPS by default)
+- **Local Development Solutions**:
+  - Use `localhost:5000` or `127.0.0.1:5000` (easiest)
+  - Set up HTTPS with self-signed certificates or mkcert
+  - Use ngrok for remote testing with HTTPS
+- **Affected Modules**: GRPO, Bin Scanning, Pick List, Inventory Transfer, Barcode Reprint
+- **Documentation**: See `CAMERA_SCANNING_GUIDE.md` for detailed setup instructions
+- **Production**: No changes needed (Replit deployments use HTTPS automatically)
 
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
