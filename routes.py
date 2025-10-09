@@ -3543,7 +3543,7 @@ def edit_branch(branch_id):
     phone = request.form.get('phone', '')
     email = request.form.get('email', '')
     manager_name = request.form.get('manager_name', '')
-    active = 'is_active' in request.form
+    is_active = 'is_active' in request.form
     is_default = 'is_default' in request.form
     
     # Check if branch exists
@@ -3564,7 +3564,7 @@ def edit_branch(branch_id):
         phone = :phone, 
         email = :email, 
         manager_name = :manager_name, 
-        active = :active, 
+        is_active = :is_active, 
         is_default = :is_default
         WHERE id = :id
     """), {
@@ -3574,7 +3574,7 @@ def edit_branch(branch_id):
         "phone": phone,
         "email": email,
         "manager_name": manager_name,
-        "active": active,
+        "is_active": is_active,
         "is_default": is_default
     })
     
