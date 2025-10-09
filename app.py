@@ -29,106 +29,50 @@ login_manager = LoginManager()
 
 # Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get(
-    "SESSION_SECRET") or "dev-secret-key-change-in-production"
+
+# Validate SESSION_SECRET is set - required for security
+session_secret = os.environ.get("SESSION_SECRET")
+if not session_secret:
+    raise RuntimeError("SESSION_SECRET environment variable must be set for secure session management")
+app.secret_key = session_secret
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Database configuration - prioritize PostgreSQL for Replit environment
-database_url = None
-db_type = None
-
-# Check for PostgreSQL first (Replit environment priority)
+# Database configuration - PostgreSQL required for Replit environment
 database_url_env = os.environ.get("DATABASE_URL", "")
 
-# Try PostgreSQL first if DATABASE_URL is available and contains postgres
-if database_url_env and ("postgres" in database_url_env or "postgresql" in database_url_env):
-    try:
-        logging.info(f"✅ Using PostgreSQL database (Replit environment): {database_url_env[:50]}...")
-        
-        # Convert postgres:// to postgresql:// if needed for SQLAlchemy compatibility
-        if database_url_env.startswith("postgres://"):
-            database_url_env = database_url_env.replace("postgres://", "postgresql://", 1)
-        
-        app.config["SQLALCHEMY_DATABASE_URI"] = database_url_env
-        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "pool_recycle": 300,
-            "pool_pre_ping": True,
-            "pool_size": 5,
-            "max_overflow": 10
-        }
-        db_type = "postgresql"
-        
-        # Test PostgreSQL connection
-        from sqlalchemy import create_engine, text
-        test_engine = create_engine(database_url_env, pool_pre_ping=True)
-        with test_engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logging.info("✅ PostgreSQL database connection successful")
-        database_url = database_url_env
-        
-    except Exception as e:
-        logging.warning(f"⚠️ PostgreSQL connection failed: {e}")
-        database_url = None
+# Validate DATABASE_URL is set and is PostgreSQL
+if not database_url_env:
+    raise RuntimeError("DATABASE_URL environment variable must be set")
 
-# Fallback to MySQL (local development)
-if not database_url:
-    mysql_config = {
-        'host': os.environ.get('MYSQL_HOST', 'localhost'),
-        'port': os.environ.get('MYSQL_PORT', '3306'),
-        'user': os.environ.get('MYSQL_USER', 'root'),
-        'password': os.environ.get('MYSQL_PASSWORD', 'root@123'),
-        'database': os.environ.get('MYSQL_DATABASE', 'wms_db_dev')
-    }
-    
-    has_mysql_env = any(os.environ.get(key) for key in ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE'])
-    is_mysql_url = database_url_env.startswith("mysql")
-    
-    if has_mysql_env or is_mysql_url:
-        try:
-            if is_mysql_url:
-                database_url = database_url_env
-                logging.info("✅ Using MySQL from DATABASE_URL environment variable")
-            else:
-                database_url = f"mysql+pymysql://{mysql_config['user']}:{mysql_config['password']}@{mysql_config['host']}:{mysql_config['port']}/{mysql_config['database']}"
-                logging.info("✅ Using MySQL from individual environment variables")
-            
-            # Test MySQL connection
-            from sqlalchemy import create_engine, text
-            test_engine = create_engine(database_url, connect_args={'connect_timeout': 5})
-            with test_engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            
-            app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-            app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-                "pool_recycle": 300,
-                "pool_pre_ping": True,
-                "pool_size": 10,
-                "max_overflow": 20
-            }
-            db_type = "mysql"
-            logging.info("✅ MySQL database connection successful")
-            
-        except Exception as e:
-            logging.warning(f"⚠️ MySQL connection failed: {e}")
-            database_url = None
+if not ("postgres" in database_url_env or "postgresql" in database_url_env):
+    raise RuntimeError("DATABASE_URL must be a PostgreSQL connection string for Replit environment")
 
-# Final fallback to SQLite
-if not app.config.get("SQLALCHEMY_DATABASE_URI"):
-    logging.warning("⚠️ No database found, using SQLite fallback")
-    sqlite_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'wms.db')
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{sqlite_path}"
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_recycle": 300,
-        "pool_pre_ping": True,
-    }
-    db_type = "sqlite"
-    # Ensure instance directory exists
-    os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
-    logging.info(f"SQLite database path: {sqlite_path}")
+logging.info(f"✅ Using PostgreSQL database (Replit environment): {database_url_env[:50]}...")
 
-# Ensure db_type is always set
-if 'db_type' not in locals():
-    db_type = "sqlite"
+# Convert postgres:// to postgresql:// if needed for SQLAlchemy compatibility
+if database_url_env.startswith("postgres://"):
+    database_url_env = database_url_env.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url_env
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10
+}
+db_type = "postgresql"
+
+# Test PostgreSQL connection - fail fast if connection fails
+from sqlalchemy import create_engine, text
+try:
+    test_engine = create_engine(database_url_env, pool_pre_ping=True)
+    with test_engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logging.info("✅ PostgreSQL database connection successful")
+    database_url = database_url_env
+except Exception as e:
+    raise RuntimeError(f"PostgreSQL connection failed: {e}")
 
 # Store database type for use in other modules
 app.config["DB_TYPE"] = db_type
