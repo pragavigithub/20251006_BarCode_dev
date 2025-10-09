@@ -3356,26 +3356,89 @@ def change_password():
     
     return render_template('change_password.html')
 
-@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@app.route('/profile')
 @login_required
-def delete_user(user_id):
-    if not (current_user.role == 'admin' or current_user.has_permission('user_management')):
-        flash('Access denied. You do not have permission to delete users.', 'error')
-        return redirect(url_for('dashboard'))
+def user_profile():
+    """View current user's profile"""
+    return render_template('user_profile.html', user=current_user)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    """Edit current user's profile"""
+    if request.method == 'POST':
+        try:
+            # Check if email is being changed and if it's already in use
+            new_email = request.form['email']
+            if new_email != current_user.email:
+                existing_user = User.query.filter_by(email=new_email).first()
+                if existing_user:
+                    flash('Email address is already in use by another user.', 'error')
+                    return render_template('edit_profile.html', user=current_user)
+            
+            # Users can update their own information
+            current_user.first_name = request.form['first_name']
+            current_user.last_name = request.form['last_name']
+            current_user.email = new_email
+            current_user.updated_at = datetime.utcnow()
+            
+            # Check if password change is requested
+            new_password = request.form.get('new_password')
+            confirm_password = request.form.get('confirm_password')
+            
+            if new_password:
+                current_password = request.form.get('current_password')
+                if not current_password:
+                    flash('Current password is required to change password.', 'error')
+                    return render_template('edit_profile.html', user=current_user)
+                
+                if not check_password_hash(current_user.password_hash, current_password):
+                    flash('Current password is incorrect.', 'error')
+                    return render_template('edit_profile.html', user=current_user)
+                
+                if new_password != confirm_password:
+                    flash('New passwords do not match.', 'error')
+                    return render_template('edit_profile.html', user=current_user)
+                
+                if len(new_password) < 6:
+                    flash('Password must be at least 6 characters long.', 'error')
+                    return render_template('edit_profile.html', user=current_user)
+                
+                current_user.password_hash = generate_password_hash(new_password)
+            
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('user_profile'))
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error updating profile: {e}")
+            flash('An error occurred while updating your profile. Please try again.', 'error')
+            return render_template('edit_profile.html', user=current_user)
     
-    user = User.query.get_or_404(user_id)
-    
-    # Prevent self-deletion
-    if user.id == current_user.id:
-        flash('You cannot delete your own account.', 'error')
-        return redirect(url_for('user_management'))
-    
-    username = user.username
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash(f'User {username} deleted successfully!', 'success')
-    return redirect(url_for('user_management'))
+    return render_template('edit_profile.html', user=current_user)
+
+# Delete user functionality removed - users can only be deactivated
+# @app.route('/delete_user/<int:user_id>', methods=['POST'])
+# @login_required
+# def delete_user(user_id):
+#     if not (current_user.role == 'admin' or current_user.has_permission('user_management')):
+#         flash('Access denied. You do not have permission to delete users.', 'error')
+#         return redirect(url_for('dashboard'))
+#     
+#     user = User.query.get_or_404(user_id)
+#     
+#     # Prevent self-deletion
+#     if user.id == current_user.id:
+#         flash('You cannot delete your own account.', 'error')
+#         return redirect(url_for('user_management'))
+#     
+#     username = user.username
+#     db.session.delete(user)
+#     db.session.commit()
+#     
+#     flash(f'User {username} deleted successfully!', 'success')
+#     return redirect(url_for('user_management'))
 
 @app.route('/activate_user/<int:user_id>', methods=['POST'])
 @login_required
