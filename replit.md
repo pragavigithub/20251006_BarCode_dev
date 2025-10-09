@@ -17,6 +17,18 @@ The Inventory Transfer module now includes enhanced document series selection:
 - **Auto-population**: Fetches complete document details including header and line items from InventoryTransferRequests endpoint
 - **Template Location**: Uses templates in `/templates/` directory for inventory transfer UI (not module directory)
 
+### User Management Module Improvements (Oct 9, 2025)
+Enhanced user management with bug fixes, security improvements, and new self-service profile features:
+- **Bug Fix**: Corrected user deactivation issue (template was using `is_active` instead of `user.active`)
+- **Security**: Removed delete user functionality - users can only be deactivated (preserves audit trail)
+- **User Profile System**: Added self-service profile management for all users
+  - `/profile` route: View own profile
+  - `/profile/edit` route: Edit own profile (name, email, password)
+  - Navigation updated with "My Profile" link in user dropdown
+- **Access Control**: Admin retains full user management; regular users can only view/edit their own profile
+- **Error Handling**: Comprehensive validation for profile updates including duplicate email detection and database error recovery
+- **No Schema Changes**: All improvements are code-only updates with no database migrations required
+
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
 - **PostgreSQL**: Primary database for production environments.
