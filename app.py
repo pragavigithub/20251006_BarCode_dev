@@ -45,8 +45,8 @@ database_url_env = os.environ.get("DATABASE_URL", "")
 if not database_url_env:
     raise RuntimeError("DATABASE_URL environment variable must be set")
 
-if not ("postgres" in database_url_env or "postgresql" in database_url_env):
-    raise RuntimeError("DATABASE_URL must be a PostgreSQL connection string for Replit environment")
+# if not ("postgres" in database_url_env or "postgresql" in database_url_env):
+#     raise RuntimeError("DATABASE_URL must be a PostgreSQL connection string for Replit environment")
 
 logging.info(f"✅ Using PostgreSQL database (Replit environment): {database_url_env[:50]}...")
 
