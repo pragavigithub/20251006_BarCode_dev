@@ -3287,7 +3287,7 @@ def edit_user(user_id):
         user.email = request.form['email']
         user.role = request.form['role']
         user.default_branch_id = request.form.get('default_branch_id') or None
-        user.active = 'is_active' in request.form
+        user.is_active = 'is_active' in request.form
         user.must_change_password = 'must_change_password' in request.form
         
         # Update permissions
@@ -3303,7 +3303,7 @@ def edit_user(user_id):
         flash(f'User {user.username} updated successfully!', 'success')
         return redirect(url_for('user_management'))
     
-    branches = db.session.execute(db.text("SELECT id, name FROM branches WHERE active = TRUE ORDER BY name")).fetchall()
+    branches = db.session.execute(db.text("SELECT id, name FROM branches WHERE is_active = TRUE ORDER BY name")).fetchall()
     return render_template('edit_user.html', user=user, branches=branches)
 
 @app.route('/reset_password/<int:user_id>', methods=['POST'])

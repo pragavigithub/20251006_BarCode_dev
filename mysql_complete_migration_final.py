@@ -210,7 +210,7 @@ BACKUP_PATH=backups/
                 ('country', 'VARCHAR(50)'),
                 ('warehouse_codes', 'TEXT'),
                 ('is_default', 'BOOLEAN DEFAULT FALSE'),
-                ('active', 'BOOLEAN DEFAULT TRUE')  # Required by application code
+                ('is_active', 'BOOLEAN DEFAULT TRUE')  # Required by application code
             ]
             
             for col_name, col_def in branch_columns:
