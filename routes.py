@@ -207,6 +207,108 @@ def get_invt_details():
             'error': str(e)
         }), 500
 
+@app.route('/api/get-invcnt-series', methods=['GET'])
+def get_invcnt_series():
+    """Get Inventory Counting document series for dropdown selection"""
+    try:
+        sap = SAPIntegration()
+        series_list = sap.get_invcnt_series()
+        
+        if series_list:
+            return jsonify({
+                'success': True,
+                'series': series_list
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No series found',
+                'series': []
+            })
+            
+    except Exception as e:
+        logging.error(f"Error in get_invcnt_series API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'series': []
+        }), 500
+
+@app.route('/api/get-invcnt-docentry', methods=['GET'])
+def get_invcnt_docentry():
+    """Get Inventory Counting DocEntry based on series and DocNum"""
+    try:
+        series = request.args.get('series')
+        doc_num = request.args.get('doc_num')
+        
+        if not series or not doc_num:
+            return jsonify({
+                'success': False,
+                'error': 'Both series and doc_num are required'
+            }), 400
+        
+        sap = SAPIntegration()
+        doc_entry = sap.get_invcnt_doc_entry(series, doc_num)
+        
+        if doc_entry:
+            return jsonify({
+                'success': True,
+                'doc_entry': doc_entry
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No DocEntry found for series {series} and DocNum {doc_num}'
+            }), 404
+            
+    except Exception as e:
+        logging.error(f"Error in get_invcnt_docentry API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-invcnt-details', methods=['GET'])
+def get_invcnt_details():
+    """Get Inventory Counting document details by DocEntry"""
+    try:
+        doc_entry = request.args.get('doc_entry')
+        
+        if not doc_entry:
+            return jsonify({
+                'success': False,
+                'error': 'doc_entry is required'
+            }), 400
+        
+        sap = SAPIntegration()
+        invcnt_data = sap.get_inventory_counting_by_doc_entry(doc_entry)
+        
+        if invcnt_data:
+            doc_status = invcnt_data.get('DocumentStatus', '')
+            
+            if doc_status != 'cdsOpen':
+                return jsonify({
+                    'success': False,
+                    'error': f'Document is not open. Status: {doc_status}. Only open documents can be processed.'
+                }), 400
+            
+            return jsonify({
+                'success': True,
+                'data': invcnt_data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No Inventory Counting document found for DocEntry {doc_entry}'
+            }), 404
+            
+    except Exception as e:
+        logging.error(f"Error in get_invcnt_details API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/get-po-by-doc-entry', methods=['POST'])
 @login_required
 def get_po_by_doc_entry():
