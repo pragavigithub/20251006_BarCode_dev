@@ -2872,6 +2872,16 @@ def inventory_counting():
     counts = InventoryCount.query.filter_by(user_id=current_user.id).order_by(InventoryCount.created_at.desc()).all()
     return render_template('inventory_counting.html', counts=counts)
 
+@app.route('/inventory_counting_sap')
+@login_required
+def inventory_counting_sap():
+    # Screen-level authorization check
+    if not current_user.has_permission('inventory_counting'):
+        flash('Access denied. You do not have permission to access Inventory Counting screen.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('inventory_counting_sap.html')
+
 @app.route('/inventory_counting/<int:count_id>')
 @login_required
 def inventory_counting_detail(count_id):
