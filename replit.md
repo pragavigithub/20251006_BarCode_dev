@@ -44,6 +44,19 @@ Camera/barcode scanning modules work correctly in Replit but require specific co
 - **Documentation**: See `CAMERA_SCANNING_GUIDE.md` for detailed setup instructions
 - **Production**: No changes needed (Replit deployments use HTTPS automatically)
 
+### Inventory Counting Module Enhancement (Oct 10, 2025)
+The Inventory Counting module now includes SAP B1 integration for document-based counting:
+- **Document Series Dropdown**: Uses SAP B1 SQLQueries('Get_INVCNT_Series')/List to retrieve available series
+- **DocEntry Retrieval**: Automatically fetches DocEntry using series and DocNum via SQLQueries('Get_INVCNT_DocEntry')/List
+- **Document Validation**: Only allows "cdsOpen" status documents to be processed (closed documents are rejected)
+- **Auto-population**: Fetches complete document details including counting lines from InventoryCountings endpoint
+- **Two Modes Available**:
+  - SAP Counting (`/inventory_counting_sap`): Document-based counting with SAP B1 integration
+  - Local Counting (`/inventory_counting`): Local count tasks and quick counting
+- **Navigation**: Counting dropdown menu provides access to both modes
+- **Template Location**: Uses templates in `/templates/` directory for inventory counting UI
+- **No Schema Changes**: All improvements are code-only updates with no database migrations required
+
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
 - **PostgreSQL**: Primary database for production environments.
