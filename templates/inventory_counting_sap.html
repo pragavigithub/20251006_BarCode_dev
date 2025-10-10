@@ -168,8 +168,17 @@ let currentDocument = null;
 let countingLines = [];
 
 // Load document series on page load
-document.addEventListener('DOMContentLoaded', async function() {
-    await loadDocumentSeries();
+document.addEventListener('DOMContentLoaded', function() {
+    // Load series asynchronously without blocking
+    loadDocumentSeries().catch(error => {
+        console.error('Failed to load document series:', error);
+        document.getElementById('documentSeries').innerHTML = '<option value="">Error loading series</option>';
+    });
+    
+    // Initialize feather icons
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
 });
 
 async function loadDocumentSeries() {
@@ -296,17 +305,28 @@ function displayCountingLines(lines) {
 }
 
 function showLoading(show) {
-    document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+    const loadingDiv = document.getElementById('loadingIndicator');
+    if (loadingDiv) {
+        loadingDiv.style.display = show ? 'block' : 'none';
+    }
 }
 
 function showError(message) {
     const errorDiv = document.getElementById('errorMessage');
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    } else {
+        console.error('Error message div not found. Error:', message);
+        alert(message);
+    }
 }
 
 function hideError() {
-    document.getElementById('errorMessage').style.display = 'none';
+    const errorDiv = document.getElementById('errorMessage');
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
 }
 
 function resetForm() {
