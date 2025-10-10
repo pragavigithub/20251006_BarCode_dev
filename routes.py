@@ -609,7 +609,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password_hash, password):
-            if user.is_active:
+            if user.active:
                 # Update branch - use provided branch, default branch, or 'HQ001'
                 if branch_id:
                     user.branch_id = branch_id
@@ -3399,7 +3399,7 @@ def edit_user(user_id):
         user.email = request.form['email']
         user.role = request.form['role']
         user.default_branch_id = request.form.get('default_branch_id') or None
-        user.is_active = 'is_active' in request.form
+        user.active = 'is_active' in request.form
         user.must_change_password = 'must_change_password' in request.form
         
         # Update permissions
