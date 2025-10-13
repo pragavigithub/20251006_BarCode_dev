@@ -156,6 +156,23 @@ Fixed Select2 initialization error preventing customer dropdown from loading:
   - Displays searchable customer list with proper selection handling
 - **No Schema Changes**: Template-only fix, no database migrations required
 
+### MultiGRN PO Fetching Fix (Oct 13, 2025)
+Fixed Purchase Orders not loading in Step 2 after customer selection:
+- **Issue 1 - Credential Loading**: `SAPMultiGRNService` was using `os.environ` directly instead of Flask's `current_app.config`
+  - Service couldn't access SAP credentials properly
+  - **Fix**: Updated `__init__` method to try `current_app.config` first, fallback to `os.environ`
+- **Issue 2 - OData Filter**: Method was filtering by `CardName` which can contain special characters
+  - Special characters in customer names (apostrophes, ampersands) cause OData filter syntax errors
+  - **Fix**: Changed filter to use `CardCode` instead (alphanumeric, more reliable)
+- **Files Modified**: 
+  - `modules/multi_grn_creation/services.py`: Updated credential loading and filter parameter
+  - `modules/multi_grn_creation/routes.py`: Changed to pass `batch.customer_code` instead of `batch.customer_name`
+- **Result**: PO fetching now works correctly:
+  - Service properly loads SAP credentials from Flask config
+  - Reliable filtering using CardCode instead of CardName
+  - Added detailed logging for debugging: "🔍 Fetching open POs for CardCode: XXX"
+- **No Schema Changes**: Code-only fix, no database migrations required
+
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
 - **PostgreSQL**: Primary database for production environments.

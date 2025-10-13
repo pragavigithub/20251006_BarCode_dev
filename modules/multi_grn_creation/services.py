@@ -13,19 +13,22 @@ class SAPMultiGRNService:
     """Service class for SAP B1 integration specific to Multiple GRN Creation"""
     
     def __init__(self):
-        self.base_url = os.environ.get('SAP_B1_SERVER', '')
-        self.username = os.environ.get('SAP_B1_USERNAME', '')
-        self.password = os.environ.get('SAP_B1_PASSWORD', '')
-        self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
+        try:
+            self.base_url = current_app.config.get('SAP_B1_SERVER', '')
+            self.username = current_app.config.get('SAP_B1_USERNAME', '')
+            self.password = current_app.config.get('SAP_B1_PASSWORD', '')
+            self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
+        except RuntimeError:
+            self.base_url = os.environ.get('SAP_B1_SERVER', '')
+            self.username = os.environ.get('SAP_B1_USERNAME', '')
+            self.password = os.environ.get('SAP_B1_PASSWORD', '')
+            self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
+        
         self.session_id = None
         self.session = requests.Session()
-        self.session.verify = False  # For development, in production use proper SSL
+        self.session.verify = False
         self.is_offline = False
-        # SSL verification enabled by default for security
-        # Only disable if explicitly set to 'false' in environment
-        # ssl_verify_env = os.environ.get('SAP_SSL_VERIFY', 'true').lower()
-        # self.session.verify = ssl_verify_env == 'true'
-        #
+        
         if not self.session.verify:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -210,7 +213,7 @@ class SAPMultiGRNService:
     #         logging.error(f"❌ Error fetching customers: {str(e)}")
     #         return {'success': False, 'error': str(e)}
     
-    def fetch_open_purchase_orders(self, card_name):
+    def fetch_open_purchase_orders(self, card_code):
         """
         Fetch open Purchase Orders for a specific customer/supplier
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
@@ -218,13 +221,13 @@ class SAPMultiGRNService:
         if not self.ensure_logged_in():
             return {'success': False, 'error': 'SAP login failed'}
         try:
-            filter_query = f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'"
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
-                '$filter': f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'",
+                '$filter': f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'",
                 '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
             }
             
+            logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
@@ -243,19 +246,19 @@ class SAPMultiGRNService:
                         po['TotalOpenLines'] = len(open_lines)
                         open_pos.append(po)
                 
-                logging.info(f"✅ Fetched {len(open_pos)} open POs for {card_name}")
+                logging.info(f"✅ Fetched {len(open_pos)} open POs for CardCode {card_code}")
                 return {'success': True, 'purchase_orders': open_pos}
             elif response.status_code == 401:
                 self.session_id = None
                 if self.login():
-                    return self.fetch_open_purchase_orders(card_name)
+                    return self.fetch_open_purchase_orders(card_code)
                 return {'success': False, 'error': 'Authentication failed'}
             else:
-                logging.error(f"❌ Failed to fetch POs: {response.text}")
+                logging.error(f"❌ Failed to fetch POs for CardCode {card_code}: {response.text}")
                 return {'success': False, 'error': response.text}
                 
         except Exception as e:
-            logging.error(f"❌ Error fetching POs: {str(e)}")
+            logging.error(f"❌ Error fetching POs for CardCode {card_code}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     def create_purchase_delivery_note(self, grn_data):
