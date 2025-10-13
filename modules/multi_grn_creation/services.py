@@ -7,33 +7,37 @@ import requests
 import json
 from datetime import datetime
 import os
+from flask import current_app
 
 class SAPMultiGRNService:
     """Service class for SAP B1 integration specific to Multiple GRN Creation"""
     
     def __init__(self):
-        self.base_url = os.environ.get('SAP_B1_SERVER', '')
-        self.username = os.environ.get('SAP_B1_USERNAME', '')
-        self.password = os.environ.get('SAP_B1_PASSWORD', '')
-        self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
+        self.base_url = current_app.config.get('SAP_B1_SERVER', '')
+        self.username = current_app.config.get('SAP_B1_USERNAME', '')
+        self.password = current_app.config.get('SAP_B1_PASSWORD', '')
+        self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
         self.session_id = None
         self.session = requests.Session()
         
         # SSL verification enabled by default for security
-        # Only disable in development if explicitly set to 'false'
+        # Only disable if explicitly set to 'false' in environment
         ssl_verify_env = os.environ.get('SAP_SSL_VERIFY', 'true').lower()
-        self.session.verify = ssl_verify_env != 'false'
+        self.session.verify = ssl_verify_env == 'true'
         
         if not self.session.verify:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            import logging
-            logging.warning("⚠️ SAP SSL VERIFICATION DISABLED - This should only be used in development environments!")
+            logging.warning("⚠️ SAP SSL verification disabled - only use in development with self-signed certificates")
     
     def login(self):
         """Login to SAP B1 Service Layer"""
         if not all([self.base_url, self.username, self.password, self.company_db]):
-            logging.warning("SAP B1 configuration incomplete")
+            logging.warning("⚠️ SAP B1 configuration incomplete. Please check environment variables.")
+            logging.warning(f"   SAP_B1_SERVER: {'✓' if self.base_url else '✗'}")
+            logging.warning(f"   SAP_B1_USERNAME: {'✓' if self.username else '✗'}")
+            logging.warning(f"   SAP_B1_PASSWORD: {'✓' if self.password else '✗'}")
+            logging.warning(f"   SAP_B1_COMPANY_DB: {'✓' if self.company_db else '✗'}")
             return False
         
         login_url = f"{self.base_url}/b1s/v1/Login"
@@ -44,14 +48,23 @@ class SAPMultiGRNService:
         }
         
         try:
+            logging.info(f"🔐 Attempting SAP login to {self.base_url}...")
             response = self.session.post(login_url, json=login_data, timeout=30)
             if response.status_code == 200:
                 self.session_id = response.json().get('SessionId')
                 logging.info("✅ SAP B1 login successful")
                 return True
             else:
-                logging.error(f"❌ SAP B1 login failed: {response.text}")
+                logging.error(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
                 return False
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
+            logging.error(f"   This may be a network issue or the SAP server may not be accessible from Replit")
+            logging.error(f"   Error details: {str(e)}")
+            return False
+        except requests.exceptions.Timeout:
+            logging.error(f"❌ SAP B1 login timeout: Server did not respond within 30 seconds")
+            return False
         except Exception as e:
             logging.error(f"❌ SAP B1 login error: {str(e)}")
             return False
@@ -102,10 +115,11 @@ class SAPMultiGRNService:
     def fetch_all_valid_customers(self):
             """Fetch all valid Business Partners for dropdown display"""
             if not self.ensure_logged_in():
-                return {'success': False, 'error': 'SAP login failed'}
+                error_msg = 'SAP login failed - check SAP credentials and network connectivity'
+                logging.error(f"❌ {error_msg}")
+                return {'success': False, 'error': error_msg}
 
             try:
-                #filter_query =
                 url = f"{self.base_url}/b1s/v1/BusinessPartners"
                 params = {
                     '$filter': f"Valid eq 'tYES'",
@@ -113,11 +127,10 @@ class SAPMultiGRNService:
                 }
                 headers = {'Prefer': 'odata.maxpagesize=0'}
 
-                # Allow self-signed SSL
-                response = self.session.get(url, params=params, headers=headers, timeout=30, verify=False)
+                logging.info(f"📡 Fetching BusinessPartners from SAP: {url}")
+                response = self.session.get(url, params=params, headers=headers, timeout=30)
 
-                logging.info(f"➡️ SAP Request: {response.url}")
-                logging.info(f"Status Code: {response.status_code}")
+                logging.info(f"📊 SAP Response Status: {response.status_code}")
 
                 if response.status_code == 200:
                     data = response.json()
@@ -129,23 +142,33 @@ class SAPMultiGRNService:
                         for c in data.get('value', [])
                         if c.get('Valid') == 'tYES'
                     ]
-                    logging.info(f"✅ Loaded {len(customers)} customers")
+                    logging.info(f"✅ Successfully loaded {len(customers)} valid customers from SAP")
                     return {'success': True, 'customers': customers}
 
                 elif response.status_code == 401:
                     self.session_id = None
-                    logging.warning("⚠️ Session expired, re-logging in...")
+                    logging.warning("⚠️ Session expired, attempting re-login...")
                     if self.login():
                         return self.fetch_all_valid_customers()
-                    return {'success': False, 'error': 'SAP authentication failed'}
+                    return {'success': False, 'error': 'SAP authentication failed - invalid credentials'}
 
                 else:
-                    logging.error(f"❌ SAP fetch failed: {response.text}")
-                    return {'success': False, 'error': response.text}
+                    error_msg = f"SAP API error (Status {response.status_code}): {response.text}"
+                    logging.error(f"❌ {error_msg}")
+                    return {'success': False, 'error': error_msg}
 
+            except requests.exceptions.ConnectionError as e:
+                error_msg = f"Cannot connect to SAP server at {self.base_url} - server may be unreachable from Replit"
+                logging.error(f"❌ {error_msg}")
+                return {'success': False, 'error': error_msg}
+            except requests.exceptions.Timeout:
+                error_msg = "SAP request timeout - server did not respond within 30 seconds"
+                logging.error(f"❌ {error_msg}")
+                return {'success': False, 'error': error_msg}
             except Exception as e:
-                logging.error(f"❌ Exception fetching customers: {e}")
-                return {'success': False, 'error': str(e)}
+                error_msg = f"Unexpected error fetching customers: {str(e)}"
+                logging.error(f"❌ {error_msg}")
+                return {'success': False, 'error': error_msg}
 
     # def fetch_all_valid_customers(self):
     #     """
