@@ -261,7 +261,7 @@ def view_batch(batch_id):
 @multi_grn_bp.route('/api/search-customers')
 @login_required
 def api_search_customers():
-    """API endpoint to search customers"""
+    """API endpoint to search customers (legacy - kept for backward compatibility)"""
     query = request.args.get('q', '')
     
     if len(query) < 2:
@@ -277,3 +277,16 @@ def api_search_customers():
     filtered = [p for p in partners if query.lower() in p['CardName'].lower() or query.lower() in p['CardCode'].lower()]
     
     return jsonify({'customers': filtered[:20]})
+
+@multi_grn_bp.route('/api/customers-dropdown')
+@login_required
+def api_customers_dropdown():
+    """API endpoint to fetch all valid customers for dropdown"""
+    sap_service = SAPMultiGRNService()
+    result = sap_service.fetch_all_valid_customers()
+    
+    if not result['success']:
+        return jsonify({'success': False, 'error': result.get('error')}), 500
+    
+    customers = result.get('customers', [])
+    return jsonify({'success': True, 'customers': customers})
