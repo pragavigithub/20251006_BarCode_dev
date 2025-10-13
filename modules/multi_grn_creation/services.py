@@ -19,12 +19,16 @@ class SAPMultiGRNService:
         self.session_id = None
         self.session = requests.Session()
         
-        ssl_verify = os.environ.get('SAP_SSL_VERIFY', 'false').lower() == 'true'
-        self.session.verify = ssl_verify
+        # SSL verification enabled by default for security
+        # Only disable in development if explicitly set to 'false'
+        ssl_verify_env = os.environ.get('SAP_SSL_VERIFY', 'true').lower()
+        self.session.verify = ssl_verify_env != 'false'
         
-        if not ssl_verify:
+        if not self.session.verify:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            import logging
+            logging.warning("⚠️ SAP SSL VERIFICATION DISABLED - This should only be used in development environments!")
     
     def login(self):
         """Login to SAP B1 Service Layer"""
