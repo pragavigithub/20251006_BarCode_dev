@@ -92,6 +92,24 @@ New module for batch creation of multiple Goods Receipt Notes (GRNs) from multip
   - Ensures Flask can locate nested templates like `multi_grn/index.html`
   - Prevents `TemplateNotFound` errors for modular blueprints
 
+### MultiGRN SAP Connectivity Fix (Oct 13, 2025)
+Fixed BusinessPartners dropdown not loading customers due to credential loading issue:
+- **Issue**: `SAPMultiGRNService` was reading from empty `os.environ` variables instead of Flask app config
+- **Fix**: Updated service to use `current_app.config` for SAP credentials (SAP_B1_SERVER, SAP_B1_USERNAME, etc.)
+- **Security Enhancement**: SSL/TLS verification enabled by default for production security
+  - Only disables when `SAP_SSL_VERIFY` explicitly set to `'false'` in environment
+  - Added warning log when SSL verification is disabled
+- **Enhanced Error Logging**: Added detailed diagnostics for SAP connectivity issues
+  - Connection errors clearly indicate network accessibility problems
+  - Timeout errors distinguished from authentication failures
+  - Configuration validation shows which credentials are missing
+- **Connectivity Documentation**: Created `SAP_CONNECTIVITY_REPLIT_GUIDE.md` with:
+  - Explanation of private IP limitation (10.112.253.173 unreachable from Replit cloud)
+  - Solutions: Public SAP endpoints, tunneling (Ngrok/Cloudflare), mock data for development
+  - Troubleshooting guide for common SAP connection errors
+  - Testing procedures and environment variable reference
+- **No Schema Changes**: Code-only fix, MySQL migration `mysql_multi_grn_migration.py` already exists
+
 ### MySQL Migration Tracking System (Oct 13, 2025)
 Comprehensive database migration tracking system for MySQL schema changes:
 - **Location**: `migrations/` directory with full documentation
