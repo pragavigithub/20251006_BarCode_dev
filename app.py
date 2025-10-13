@@ -195,5 +195,15 @@ app.register_blueprint(transfer_bp)
 app.register_blueprint(serial_item_bp)
 app.register_blueprint(multi_grn_bp)
 
+# Add module-specific template folders to Jinja loader search path
+app.jinja_loader.searchpath.extend([
+    'modules/grpo/templates',
+    'modules/inventory_transfer/templates',
+    'modules/multi_grn_creation/templates',
+    'modules/serial_item_transfer/templates'
+])
+
+logging.info("✅ All module blueprints registered and template paths configured")
+
 # Import routes to register them
 import routes
