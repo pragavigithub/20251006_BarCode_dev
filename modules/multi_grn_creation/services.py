@@ -98,45 +98,93 @@ class SAPMultiGRNService:
         except Exception as e:
             logging.error(f"❌ Error fetching business partners: {str(e)}")
             return {'success': False, 'error': str(e)}
-    
+
     def fetch_all_valid_customers(self):
-        """
-        Fetch all valid Business Partners for dropdown display
-        Uses filter: Valid eq 'tYES' and proper headers as per API spec
-        """
-        if not self.ensure_logged_in():
-            return {'success': False, 'error': 'SAP login failed'}
-        
-        try:
-            filter_query = "Valid eq 'tYES'"
-            url = f"{self.base_url}/b1s/v1/BusinessPartners"
-            params = {
-                '$filter': filter_query,
-                '$select': 'CardCode,CardName,Valid'
-            }
-            headers = {'Prefer': 'odata.maxpagesize=0'}
-            
-            response = self.session.get(url, params=params, headers=headers, timeout=30)
-            
-            if response.status_code == 200:
-                data = response.json()
-                customers = data.get('value', [])
-                # Sort by CardName for better dropdown UX
-                customers.sort(key=lambda x: x.get('CardName', ''))
-                logging.info(f"✅ Fetched {len(customers)} valid customers for dropdown")
-                return {'success': True, 'customers': customers}
-            elif response.status_code == 401:
-                self.session_id = None
-                if self.login():
-                    return self.fetch_all_valid_customers()
-                return {'success': False, 'error': 'Authentication failed'}
-            else:
-                logging.error(f"❌ Failed to fetch customers: {response.text}")
-                return {'success': False, 'error': response.text}
-                
-        except Exception as e:
-            logging.error(f"❌ Error fetching customers: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            """Fetch all valid Business Partners for dropdown display"""
+            if not self.ensure_logged_in():
+                return {'success': False, 'error': 'SAP login failed'}
+
+            try:
+                #filter_query =
+                url = f"{self.base_url}/b1s/v1/BusinessPartners"
+                params = {
+                    '$filter': f"Valid eq 'tYES'",
+                    '$select': 'CardCode,CardName,Valid'
+                }
+                headers = {'Prefer': 'odata.maxpagesize=0'}
+
+                # Allow self-signed SSL
+                response = self.session.get(url, params=params, headers=headers, timeout=30, verify=False)
+
+                logging.info(f"➡️ SAP Request: {response.url}")
+                logging.info(f"Status Code: {response.status_code}")
+
+                if response.status_code == 200:
+                    data = response.json()
+                    customers = [
+                        {
+                            'CardCode': c['CardCode'],
+                            'CardName': c['CardName']
+                        }
+                        for c in data.get('value', [])
+                        if c.get('Valid') == 'tYES'
+                    ]
+                    logging.info(f"✅ Loaded {len(customers)} customers")
+                    return {'success': True, 'customers': customers}
+
+                elif response.status_code == 401:
+                    self.session_id = None
+                    logging.warning("⚠️ Session expired, re-logging in...")
+                    if self.login():
+                        return self.fetch_all_valid_customers()
+                    return {'success': False, 'error': 'SAP authentication failed'}
+
+                else:
+                    logging.error(f"❌ SAP fetch failed: {response.text}")
+                    return {'success': False, 'error': response.text}
+
+            except Exception as e:
+                logging.error(f"❌ Exception fetching customers: {e}")
+                return {'success': False, 'error': str(e)}
+
+    # def fetch_all_valid_customers(self):
+    #     """
+    #     Fetch all valid Business Partners for dropdown display
+    #     Uses filter: Valid eq 'tYES' and proper headers as per API spec
+    #     """
+    #     if not self.ensure_logged_in():
+    #         return {'success': False, 'error': 'SAP login failed'}
+    #
+    #     try:
+    #         filter_query = "Valid eq 'tYES'"
+    #         url = f"{self.base_url}/b1s/v1/BusinessPartners"
+    #         params = {
+    #             '$filter': filter_query,
+    #             '$select': 'CardCode,CardName,Valid'
+    #         }
+    #         headers = {'Prefer': 'odata.maxpagesize=0'}
+    #
+    #         response = self.session.get(url, params=params, headers=headers, timeout=30)
+    #
+    #         if response.status_code == 200:
+    #             data = response.json()
+    #             customers = data.get('value', [])
+    #             # Sort by CardName for better dropdown UX
+    #             #customers.sort(key=lambda x: x.get('CardName', ''))
+    #             logging.info(f"✅ Fetched {len(customers)} valid customers for dropdown")
+    #             return {'success': True, 'customers': customers}
+    #         elif response.status_code == 401:
+    #             self.session_id = None
+    #             if self.login():
+    #                 return self.fetch_all_valid_customers()
+    #             return {'success': False, 'error': 'Authentication failed'}
+    #         else:
+    #             logging.error(f"❌ Failed to fetch customers: {response.text}")
+    #             return {'success': False, 'error': response.text}
+    #
+    #     except Exception as e:
+    #         logging.error(f"❌ Error fetching customers: {str(e)}")
+    #         return {'success': False, 'error': str(e)}
     
     def fetch_open_purchase_orders(self, card_code):
         """

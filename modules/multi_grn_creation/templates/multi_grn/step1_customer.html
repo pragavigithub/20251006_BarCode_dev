@@ -78,7 +78,7 @@ $(document).ready(function() {
         .then(response => response.json())
         .then(data => {
             loadingMessage.hide();
-            
+
             if (data.success && data.customers) {
                 // Populate dropdown with customers
                 data.customers.forEach(customer => {
@@ -92,10 +92,10 @@ $(document).ready(function() {
                     $(option).data('customer-name', customer.CardName);
                     customerDropdown.append(option);
                 });
-                
+
                 // Trigger change to update Select2
                 customerDropdown.trigger('change');
-                
+
                 console.log(`✅ Loaded ${data.customers.length} customers`);
             } else {
                 errorMessage.text('Failed to load customers: ' + (data.error || 'Unknown error'));
