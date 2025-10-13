@@ -13,18 +13,19 @@ class SAPMultiGRNService:
     """Service class for SAP B1 integration specific to Multiple GRN Creation"""
     
     def __init__(self):
-        self.base_url = current_app.config.get('SAP_B1_SERVER', '')
-        self.username = current_app.config.get('SAP_B1_USERNAME', '')
-        self.password = current_app.config.get('SAP_B1_PASSWORD', '')
-        self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
+        self.base_url = os.environ.get('SAP_B1_SERVER', '')
+        self.username = os.environ.get('SAP_B1_USERNAME', '')
+        self.password = os.environ.get('SAP_B1_PASSWORD', '')
+        self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
         self.session_id = None
         self.session = requests.Session()
-        
+        self.session.verify = False  # For development, in production use proper SSL
+        self.is_offline = False
         # SSL verification enabled by default for security
         # Only disable if explicitly set to 'false' in environment
-        ssl_verify_env = os.environ.get('SAP_SSL_VERIFY', 'true').lower()
-        self.session.verify = ssl_verify_env == 'true'
-        
+        # ssl_verify_env = os.environ.get('SAP_SSL_VERIFY', 'true').lower()
+        # self.session.verify = ssl_verify_env == 'true'
+        #
         if not self.session.verify:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
