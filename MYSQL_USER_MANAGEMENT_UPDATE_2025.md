@@ -48,7 +48,7 @@ class User(UserMixin, db.Model):
     branch_id = db.Column(db.String(10), nullable=True)
     branch_name = db.Column(db.String(100), nullable=True)
     default_branch_id = db.Column(db.String(10), nullable=True)
-    active = db.Column(db.Boolean, default=True)  # <-- This field was already correct
+    is_active = db.Column(db.Boolean, default=True)  # <-- This field was already correct
     must_change_password = db.Column(db.Boolean, default=False)
     last_login = db.Column(db.DateTime, nullable=True)
     permissions = db.Column(db.Text, nullable=True)

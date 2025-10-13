@@ -160,7 +160,7 @@ with app.app_context():
             admin.branch_id = 'BR001'
             admin.branch_name = 'Main Branch'
             admin.default_branch_id = 'BR001'
-            admin.active = True
+            admin.is_active = True
             admin.must_change_password = False
             db.session.add(admin)
             logging.info("Default admin user created")

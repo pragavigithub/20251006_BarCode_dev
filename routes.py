@@ -609,7 +609,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password_hash, password):
-            if user.active:
+            if user.is_active:
                 # Update branch - use provided branch, default branch, or 'HQ001'
                 if branch_id:
                     user.branch_id = branch_id
