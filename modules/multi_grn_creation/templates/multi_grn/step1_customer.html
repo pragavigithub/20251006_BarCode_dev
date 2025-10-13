@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 
+{% block head %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <nav aria-label="breadcrumb">
@@ -16,9 +22,14 @@
         <div class="card-body">
             <form method="POST" id="customerForm">
                 <div class="mb-3">
-                    <label for="customerSearch" class="form-label">Search Customer *</label>
-                    <input type="text" class="form-control" id="customerSearch" placeholder="Type customer name or code..." autocomplete="off">
-                    <div id="customerResults" class="list-group mt-2" style="max-height: 300px; overflow-y: auto;"></div>
+                    <label for="customerDropdown" class="form-label">Select Customer *</label>
+                    <select class="form-select" id="customerDropdown" name="customer_dropdown" required style="width: 100%;">
+                        <option value="">-- Select a Customer --</option>
+                    </select>
+                    <div id="loadingMessage" class="text-muted mt-2" style="display: none;">
+                        <span class="spinner-border spinner-border-sm me-2"></span>Loading customers...
+                    </div>
+                    <div id="errorMessage" class="text-danger mt-2" style="display: none;"></div>
                 </div>
 
                 <input type="hidden" name="customer_code" id="customer_code" required>
@@ -39,59 +50,99 @@
     </div>
 </div>
 
+<!-- jQuery (required for Select2) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
-let searchTimeout;
-const customerSearch = document.getElementById('customerSearch');
-const customerResults = document.getElementById('customerResults');
-const selectedCustomer = document.getElementById('selectedCustomer');
-const nextBtn = document.getElementById('nextBtn');
-
-customerSearch.addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    const query = this.value.trim();
+$(document).ready(function() {
+    const customerDropdown = $('#customerDropdown');
+    const loadingMessage = $('#loadingMessage');
+    const errorMessage = $('#errorMessage');
+    const selectedCustomer = $('#selectedCustomer');
+    const nextBtn = $('#nextBtn');
     
-    if (query.length < 2) {
-        customerResults.innerHTML = '';
-        return;
-    }
+    // Initialize Select2 with search enabled
+    customerDropdown.select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select a customer',
+        allowClear: true,
+        width: '100%'
+    });
     
-    searchTimeout = setTimeout(() => {
-        fetch(`/multi-grn/api/search-customers?q=${encodeURIComponent(query)}`)
-            .then(res => res.json())
-            .then(data => {
-                customerResults.innerHTML = '';
+    // Load customers from API
+    loadingMessage.show();
+    
+    fetch('/multi-grn/api/customers-dropdown')
+        .then(response => response.json())
+        .then(data => {
+            loadingMessage.hide();
+            
+            if (data.success && data.customers) {
+                // Populate dropdown with customers
+                data.customers.forEach(customer => {
+                    const option = new Option(
+                        customer.CardName,  // Display text
+                        customer.CardCode,  // Value
+                        false,
+                        false
+                    );
+                    // Store customer name as data attribute
+                    $(option).data('customer-name', customer.CardName);
+                    customerDropdown.append(option);
+                });
                 
-                if (data.customers && data.customers.length > 0) {
-                    data.customers.forEach(customer => {
-                        const item = document.createElement('a');
-                        item.href = '#';
-                        item.className = 'list-group-item list-group-item-action';
-                        item.innerHTML = `<strong>${customer.CardName}</strong><br><small>${customer.CardCode}</small>`;
-                        item.onclick = (e) => {
-                            e.preventDefault();
-                            selectCustomer(customer.CardCode, customer.CardName);
-                        };
-                        customerResults.appendChild(item);
-                    });
-                } else {
-                    customerResults.innerHTML = '<div class="list-group-item">No customers found</div>';
-                }
-            })
-            .catch(err => {
-                console.error('Error searching customers:', err);
-                customerResults.innerHTML = '<div class="list-group-item text-danger">Error loading customers</div>';
-            });
-    }, 300);
+                // Trigger change to update Select2
+                customerDropdown.trigger('change');
+                
+                console.log(`✅ Loaded ${data.customers.length} customers`);
+            } else {
+                errorMessage.text('Failed to load customers: ' + (data.error || 'Unknown error'));
+                errorMessage.show();
+            }
+        })
+        .catch(err => {
+            loadingMessage.hide();
+            errorMessage.text('Error loading customers: ' + err.message);
+            errorMessage.show();
+            console.error('Error loading customers:', err);
+        });
+    
+    // Handle customer selection
+    customerDropdown.on('change', function() {
+        const selectedCode = $(this).val();
+        const selectedOption = $(this).find('option:selected');
+        const selectedName = selectedOption.data('customer-name') || selectedOption.text();
+        
+        if (selectedCode) {
+            // Set hidden fields
+            $('#customer_code').val(selectedCode);
+            $('#customer_name').val(selectedName);
+            
+            // Show selected customer
+            $('#selectedCustomerName').text(`${selectedName} (${selectedCode})`);
+            selectedCustomer.removeClass('d-none');
+            
+            // Enable next button
+            nextBtn.prop('disabled', false);
+        } else {
+            // Clear selection
+            $('#customer_code').val('');
+            $('#customer_name').val('');
+            selectedCustomer.addClass('d-none');
+            nextBtn.prop('disabled', true);
+        }
+    });
+    
+    // Prevent form submission if no customer selected
+    $('#customerForm').on('submit', function(e) {
+        if (!$('#customer_code').val()) {
+            e.preventDefault();
+            alert('Please select a customer');
+            return false;
+        }
+    });
 });
-
-function selectCustomer(code, name) {
-    document.getElementById('customer_code').value = code;
-    document.getElementById('customer_name').value = name;
-    document.getElementById('selectedCustomerName').textContent = `${name} (${code})`;
-    selectedCustomer.classList.remove('d-none');
-    customerResults.innerHTML = '';
-    customerSearch.value = name;
-    nextBtn.disabled = false;
-}
 </script>
 {% endblock %}
