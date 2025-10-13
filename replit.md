@@ -57,6 +57,31 @@ The Inventory Counting module now includes SAP B1 integration for document-based
 - **Template Location**: Uses templates in `/templates/` directory for inventory counting UI
 - **No Schema Changes**: All improvements are code-only updates with no database migrations required
 
+### Multiple GRN Creation Module (Oct 13, 2025)
+New module for batch creation of multiple Goods Receipt Notes (GRNs) from multiple Purchase Orders:
+- **Module Path**: `/multi-grn/*` - Accessible via Multi GRN menu
+- **Architecture**: Modular blueprint structure in `modules/multi_grn_creation/`
+- **Database Tables**:
+  - `multi_grn_batches`: Main batch records for GRN creation sessions
+  - `multi_grn_po_links`: Links between batches and selected Purchase Orders
+  - `multi_grn_line_selections`: Selected line items from POs for GRN creation
+- **5-Step Workflow**:
+  1. Customer Selection: Search and select customer from SAP B1 Business Partners
+  2. PO Selection: View and select multiple open Purchase Orders for the customer
+  3. Line Item Selection: Choose specific line items and quantities from selected POs
+  4. Review & Confirm: Review all selections before posting
+  5. Post to SAP: Create GRNs via SAP B1 PurchaseDeliveryNotes API with status tracking
+- **SAP Integration**:
+  - Uses dedicated `SAPMultiGRNService` class with secure defaults
+  - **Security**: SSL/TLS verification enabled by default (configurable via `SAP_SSL_VERIFY` env variable)
+  - Fetches Business Partners with filter: `Valid eq 'tYES'`
+  - Fetches open POs with filter: `DocumentStatus eq 'bost_Open'` and `OpenQuantity > 0`
+  - Posts GRNs with proper base document references (BaseType=22 for PO)
+- **Error Handling**: Comprehensive error logging and recovery for failed GRN postings
+- **Permissions**: Accessible to admin, manager, and regular users (permission key: `multiple_grn`)
+- **MySQL Migration**: `mysql_multi_grn_migration.py` for MySQL environments
+- **Templates**: Server-rendered multi-step UI in `modules/multi_grn_creation/templates/`
+
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
 - **PostgreSQL**: Primary database for production environments.
