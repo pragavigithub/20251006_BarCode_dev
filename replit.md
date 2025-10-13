@@ -66,7 +66,7 @@ New module for batch creation of multiple Goods Receipt Notes (GRNs) from multip
   - `multi_grn_po_links`: Links between batches and selected Purchase Orders
   - `multi_grn_line_selections`: Selected line items from POs for GRN creation
 - **5-Step Workflow**:
-  1. Customer Selection: Search and select customer from SAP B1 Business Partners
+  1. Customer Selection: Dropdown list powered by Select2 for all valid SAP B1 Business Partners
   2. PO Selection: View and select multiple open Purchase Orders for the customer
   3. Line Item Selection: Choose specific line items and quantities from selected POs
   4. Review & Confirm: Review all selections before posting
@@ -74,9 +74,15 @@ New module for batch creation of multiple Goods Receipt Notes (GRNs) from multip
 - **SAP Integration**:
   - Uses dedicated `SAPMultiGRNService` class with secure defaults
   - **Security**: SSL/TLS verification enabled by default (configurable via `SAP_SSL_VERIFY` env variable)
-  - Fetches Business Partners with filter: `Valid eq 'tYES'`
+  - Fetches Business Partners with filter: `Valid eq 'tYES'` and header: `Prefer: odata.maxpagesize=0`
   - Fetches open POs with filter: `DocumentStatus eq 'bost_Open'` and `OpenQuantity > 0`
   - Posts GRNs with proper base document references (BaseType=22 for PO)
+- **UI Enhancement (Oct 13, 2025)**: Customer Selection Dropdown
+  - Replaced search autocomplete with Select2 dropdown for better UX
+  - Displays `CardName` in dropdown, stores `CardCode` for backend processing
+  - Pre-loads all valid customers with single API call: `/api/customers-dropdown`
+  - Provides search/filter capability within dropdown for large customer lists
+  - Loading indicator and error handling for SAP API communication
 - **Error Handling**: Comprehensive error logging and recovery for failed GRN postings
 - **Permissions**: Accessible to admin, manager, and regular users (permission key: `multiple_grn`)
 - **MySQL Migration**: `mysql_multi_grn_migration.py` for MySQL environments
