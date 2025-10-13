@@ -25,7 +25,12 @@ This file tracks all database schema changes chronologically. Each migration rep
   - Supporting: bin_locations, bin_items, bin_scanning_logs, barcode_labels, qr_code_labels, document_number_series, inventory_counts, inventory_count_items, sales_orders, sales_order_lines
 - **Status**: ✅ Documented
 - **Applied By**: System
-- **Notes**: Baseline schema from SQLAlchemy models
+- **Notes**: 
+  - Baseline schema from SQLAlchemy models
+  - **Fixes Applied**: 
+    - Added missing `created_by` column to `password_reset_tokens` table (INT, nullable, foreign key to users.id)
+    - Corrected `password_reset_tokens.token` column from VARCHAR(255) to VARCHAR(256) to match SQLAlchemy model
+  - Schema validated and ready for MySQL deployment
 
 ---
 

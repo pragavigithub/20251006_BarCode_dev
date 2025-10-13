@@ -81,6 +81,38 @@ New module for batch creation of multiple Goods Receipt Notes (GRNs) from multip
 - **Permissions**: Accessible to admin, manager, and regular users (permission key: `multiple_grn`)
 - **MySQL Migration**: `mysql_multi_grn_migration.py` for MySQL environments
 - **Templates**: Server-rendered multi-step UI in `modules/multi_grn_creation/templates/`
+- **Template Path Fix (Oct 13, 2025)**: Fixed template loading issue by extending Jinja loader search paths in `app.py`
+  - Added all module template directories to `app.jinja_loader.searchpath`
+  - Ensures Flask can locate nested templates like `multi_grn/index.html`
+  - Prevents `TemplateNotFound` errors for modular blueprints
+
+### MySQL Migration Tracking System (Oct 13, 2025)
+Comprehensive database migration tracking system for MySQL schema changes:
+- **Location**: `migrations/` directory with full documentation
+- **Structure**:
+  - `migrations/README.md`: Complete migration system documentation
+  - `migrations/MIGRATION_LOG.md`: Chronological log of all schema changes
+  - `migrations/mysql/schema/initial_schema.sql`: Full initial database schema
+  - `migrations/mysql/changes/`: Incremental migration files (YYYY-MM-DD_HH-MM_description.sql format)
+- **Schema Coverage**: All tables documented including:
+  - Core: users, branches, sessions, password resets
+  - GRPO: documents and items
+  - Inventory Transfer: transfers and items
+  - Multi GRN: batches, PO links, line selections
+  - Pick List: lists, items, lines, bin allocations
+  - Serial Number Tracking: transfers, items, serials
+  - Supporting: bins, barcodes, QR codes, document series, inventory counts, sales orders
+- **Migration Workflow**:
+  1. Create migration file with timestamp and description
+  2. Include both UP (apply) and DOWN (rollback) SQL
+  3. Update MIGRATION_LOG.md with migration details
+  4. Test on development database before production
+- **Best Practices**:
+  - Never modify existing migration files
+  - Keep migrations atomic and reversible
+  - Document dependencies between migrations
+  - Always backup before applying migrations
+- **Database Strategy**: PostgreSQL is primary (Replit), MySQL migrations for secondary/local support
 
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.
