@@ -210,19 +210,18 @@ class SAPMultiGRNService:
     #         logging.error(f"❌ Error fetching customers: {str(e)}")
     #         return {'success': False, 'error': str(e)}
     
-    def fetch_open_purchase_orders(self, card_code):
+    def fetch_open_purchase_orders(self, card_name):
         """
         Fetch open Purchase Orders for a specific customer/supplier
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
         """
         if not self.ensure_logged_in():
             return {'success': False, 'error': 'SAP login failed'}
-        
         try:
-            filter_query = f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'"
+            filter_query = f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'"
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
-                '$filter': filter_query,
+                '$filter': f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'",
                 '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
             }
             
@@ -244,12 +243,12 @@ class SAPMultiGRNService:
                         po['TotalOpenLines'] = len(open_lines)
                         open_pos.append(po)
                 
-                logging.info(f"✅ Fetched {len(open_pos)} open POs for {card_code}")
+                logging.info(f"✅ Fetched {len(open_pos)} open POs for {card_name}")
                 return {'success': True, 'purchase_orders': open_pos}
             elif response.status_code == 401:
                 self.session_id = None
                 if self.login():
-                    return self.fetch_open_purchase_orders(card_code)
+                    return self.fetch_open_purchase_orders(card_name)
                 return {'success': False, 'error': 'Authentication failed'}
             else:
                 logging.error(f"❌ Failed to fetch POs: {response.text}")
