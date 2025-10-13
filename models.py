@@ -53,14 +53,15 @@ class User(UserMixin, db.Model):
             'grpo': False,
             'inventory_transfer': False,
             'serial_transfer': False,
-            'serial_item_transfer': False,  # New Serial Item Transfer module
+            'serial_item_transfer': False,
             'batch_transfer': False,
             'pick_list': False,
             'inventory_counting': False,
             'bin_scanning': False,
             'label_printing': False,
             'user_management': False,
-            'qc_dashboard': False
+            'qc_dashboard': False,
+            'multiple_grn': False
         }
 
         if self.role == 'admin':
@@ -72,13 +73,14 @@ class User(UserMixin, db.Model):
                 'grpo': True,
                 'inventory_transfer': True,
                 'serial_transfer': True,
-                'serial_item_transfer': True,  # Allow managers access to Serial Item Transfer
+                'serial_item_transfer': True,
                 'batch_transfer': True,
                 'pick_list': True,
                 'inventory_counting': True,
                 'bin_scanning': True,
                 'label_printing': True,
-                'user_management': True
+                'user_management': True,
+                'multiple_grn': True
             })
         elif self.role == 'qc':
             permissions.update({
@@ -91,8 +93,9 @@ class User(UserMixin, db.Model):
                 'grpo': True,
                 'inventory_transfer': True,
                 'serial_transfer': True,
-                'serial_item_transfer': True,  # Allow regular users access to Serial Item Transfer
+                'serial_item_transfer': True,
                 'batch_transfer': True,
+                'multiple_grn': True,
                 'pick_list': True,
                 'inventory_counting': True,
                 'bin_scanning': True,

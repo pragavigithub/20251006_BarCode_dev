@@ -94,6 +94,7 @@ app.config['SAP_B1_COMPANY_DB'] = os.environ.get('SAP_B1_COMPANY_DB',
 # Import models after app is configured to avoid circular imports
 import models
 import models_extensions
+from modules.multi_grn_creation import models as multi_grn_models
 
 with app.app_context():
     # Create all database tables first
@@ -188,9 +189,11 @@ except Exception as e:
 # Import and register blueprints
 from modules.inventory_transfer.routes import transfer_bp
 from modules.serial_item_transfer.routes import serial_item_bp
+from modules.multi_grn_creation.routes import multi_grn_bp
 
 app.register_blueprint(transfer_bp)
 app.register_blueprint(serial_item_bp)
+app.register_blueprint(multi_grn_bp)
 
 # Import routes to register them
 import routes
