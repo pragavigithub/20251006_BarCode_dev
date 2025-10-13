@@ -219,7 +219,8 @@ class SAPMultiGRNService:
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
         """
         if not self.ensure_logged_in():
-            return {'success': False, 'error': 'SAP login failed'}
+            logging.error(f"❌ SAP login failed - cannot fetch POs for CardCode: {card_code}")
+            return {'success': False, 'error': 'SAP login failed - check SAP credentials and connectivity'}
         try:
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
@@ -228,6 +229,7 @@ class SAPMultiGRNService:
             }
             
             logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
+            logging.debug(f"  SAP URL: {url}?$filter={params['$filter']}")
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
