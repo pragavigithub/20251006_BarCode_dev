@@ -9,6 +9,7 @@ from barcode_generator import BarcodeGenerator
 from app import app, db, login_manager
 from models import User, GRPODocument, GRPOItem, InventoryTransfer, InventoryTransferItem, PickList, PickListItem, \
     InventoryCount, InventoryCountItem, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine
+from modules.multi_grn_creation.models import MultiGRNBatch
 from sap_integration import SAPIntegration
 from sqlalchemy import or_
 
@@ -660,12 +661,14 @@ def dashboard():
         transfer_count = InventoryTransfer.query.filter_by(user_id=current_user.id).count()
         pick_list_count = PickList.query.filter_by(user_id=current_user.id).count()
         count_tasks = InventoryCount.query.filter_by(user_id=current_user.id).count()
+        multi_grn_count = MultiGRNBatch.query.filter_by(user_id=current_user.id).count()
         
         stats = {
             'grpo_count': grpo_count,
             'transfer_count': transfer_count,
             'pick_list_count': pick_list_count,
-            'count_tasks': count_tasks
+            'count_tasks': count_tasks,
+            'multi_grn_count': multi_grn_count
         }
         
         # Get recent activity - live data from database
@@ -711,6 +714,16 @@ def dashboard():
                 'status': getattr(count, 'status', 'active')
             })
         
+        # Get recent Multi GRN batches
+        recent_multi_grns = MultiGRNBatch.query.filter_by(user_id=current_user.id).order_by(MultiGRNBatch.created_at.desc()).limit(5).all()
+        for batch in recent_multi_grns:
+            recent_activities.append({
+                'type': 'Multi GRN Batch',
+                'description': f"Batch: {batch.batch_number}",
+                'created_at': batch.created_at,
+                'status': batch.status
+            })
+        
         # Sort all activities by creation date and get top 10
         recent_activities = sorted(recent_activities, key=lambda x: x['created_at'], reverse=True)[:10]
         
@@ -721,7 +734,8 @@ def dashboard():
             'grpo_count': 0,
             'transfer_count': 0,
             'pick_list_count': 0,
-            'count_tasks': 0
+            'count_tasks': 0,
+            'multi_grn_count': 0
         }
         recent_activities = []
         flash('Database needs to be updated. Please run: python migrate_database.py', 'warning')
