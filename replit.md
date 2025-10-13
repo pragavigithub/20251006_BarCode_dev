@@ -137,6 +137,24 @@ Comprehensive database migration tracking system for MySQL schema changes:
   - Document dependencies between migrations
   - Always backup before applying migrations
 - **Database Strategy**: PostgreSQL is primary (Replit), MySQL migrations for secondary/local support
+- **Quick Reference**: See `migrations/KEEP_MIGRATIONS_UPDATED.md` for step-by-step guide on creating migrations
+- **Important Reminder**: Always create MySQL migration files when modifying any model file:
+  - `models.py`, `models_extensions.py` (Core models)
+  - `modules/*/models.py` (Module-specific models)
+
+### MultiGRN Customer Dropdown JavaScript Fix (Oct 13, 2025)
+Fixed Select2 initialization error preventing customer dropdown from loading:
+- **Issue**: `customerDropdown.select2 is not a function` JavaScript error in browser console
+- **Root Cause**: Script loading order - Select2 initialization code executed before jQuery and Select2 libraries were loaded
+- **Fix**: Moved jQuery and Select2 script tags from content block to `{% block scripts %}` section
+  - Scripts now load after base template's jQuery (correct order)
+  - Select2 library loads before initialization code
+- **Files Modified**: `modules/multi_grn_creation/templates/multi_grn/step1_customer.html`
+- **Result**: Customer dropdown now successfully:
+  - Initializes Select2 with Bootstrap 5 theme
+  - Fetches customers from `/multi-grn/api/customers-dropdown` endpoint
+  - Displays searchable customer list with proper selection handling
+- **No Schema Changes**: Template-only fix, no database migrations required
 
 ## External Dependencies
 - **SAP B1 Service Layer API**: For inventory management, goods receipt, pick lists, inventory transfers, and serial number validation.

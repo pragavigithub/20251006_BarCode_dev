@@ -49,9 +49,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- jQuery (required for Select2) -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% block scripts %}
 <!-- Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
@@ -83,17 +83,15 @@ $(document).ready(function() {
                 // Populate dropdown with customers
                 data.customers.forEach(customer => {
                     const option = new Option(
-                        customer.CardName,  // Display text
-                        customer.CardCode,  // Value
+                        customer.CardName,
+                        customer.CardCode,
                         false,
                         false
                     );
-                    // Store customer name as data attribute
                     $(option).data('customer-name', customer.CardName);
                     customerDropdown.append(option);
                 });
 
-                // Trigger change to update Select2
                 customerDropdown.trigger('change');
 
                 console.log(`✅ Loaded ${data.customers.length} customers`);
@@ -116,18 +114,14 @@ $(document).ready(function() {
         const selectedName = selectedOption.data('customer-name') || selectedOption.text();
         
         if (selectedCode) {
-            // Set hidden fields
             $('#customer_code').val(selectedCode);
             $('#customer_name').val(selectedName);
             
-            // Show selected customer
             $('#selectedCustomerName').text(`${selectedName} (${selectedCode})`);
             selectedCustomer.removeClass('d-none');
             
-            // Enable next button
             nextBtn.prop('disabled', false);
         } else {
-            // Clear selection
             $('#customer_code').val('');
             $('#customer_name').val('');
             selectedCustomer.addClass('d-none');
