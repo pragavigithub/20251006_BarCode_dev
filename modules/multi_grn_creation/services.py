@@ -99,6 +99,45 @@ class SAPMultiGRNService:
             logging.error(f"❌ Error fetching business partners: {str(e)}")
             return {'success': False, 'error': str(e)}
     
+    def fetch_all_valid_customers(self):
+        """
+        Fetch all valid Business Partners for dropdown display
+        Uses filter: Valid eq 'tYES' and proper headers as per API spec
+        """
+        if not self.ensure_logged_in():
+            return {'success': False, 'error': 'SAP login failed'}
+        
+        try:
+            filter_query = "Valid eq 'tYES'"
+            url = f"{self.base_url}/b1s/v1/BusinessPartners"
+            params = {
+                '$filter': filter_query,
+                '$select': 'CardCode,CardName,Valid'
+            }
+            headers = {'Prefer': 'odata.maxpagesize=0'}
+            
+            response = self.session.get(url, params=params, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                customers = data.get('value', [])
+                # Sort by CardName for better dropdown UX
+                customers.sort(key=lambda x: x.get('CardName', ''))
+                logging.info(f"✅ Fetched {len(customers)} valid customers for dropdown")
+                return {'success': True, 'customers': customers}
+            elif response.status_code == 401:
+                self.session_id = None
+                if self.login():
+                    return self.fetch_all_valid_customers()
+                return {'success': False, 'error': 'Authentication failed'}
+            else:
+                logging.error(f"❌ Failed to fetch customers: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            logging.error(f"❌ Error fetching customers: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
     def fetch_open_purchase_orders(self, card_code):
         """
         Fetch open Purchase Orders for a specific customer/supplier
