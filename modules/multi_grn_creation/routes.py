@@ -341,3 +341,121 @@ def generate_barcode():
     except Exception as e:
         logging.error(f"Error generating barcode: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@multi_grn_bp.route('/api/validate-item', methods=['POST'])
+@login_required
+def validate_item():
+    """Validate item code and return batch/serial management info"""
+    try:
+        data = request.get_json()
+        item_code = data.get('item_code')
+        
+        if not item_code:
+            return jsonify({'success': False, 'error': 'Item code is required'}), 400
+        
+        sap_service = SAPMultiGRNService()
+        
+        # Validate item and get batch/serial info
+        validation_result = sap_service.validate_item_code(item_code)
+        
+        if not validation_result['success']:
+            return jsonify(validation_result), 404
+        
+        # Get item details (name, UoM, etc.)
+        details_result = sap_service.get_item_details(item_code)
+        
+        if details_result['success']:
+            validation_result['item_name'] = details_result['item'].get('ItemName', '')
+            validation_result['uom'] = details_result['item'].get('InventoryUOM', '')
+        
+        return jsonify(validation_result)
+        
+    except Exception as e:
+        logging.error(f"Error validating item: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@multi_grn_bp.route('/api/add-manual-item', methods=['POST'])
+@login_required
+def add_manual_item():
+    """Add a manual item to a PO link"""
+    try:
+        data = request.get_json()
+        po_link_id = data.get('po_link_id')
+        item_code = data.get('item_code')
+        item_description = data.get('item_description')
+        quantity = data.get('quantity')
+        uom = data.get('uom')
+        warehouse_code = data.get('warehouse_code')
+        bin_location = data.get('bin_location')
+        batch_number = data.get('batch_number')
+        expiry_date = data.get('expiry_date')
+        serial_number = data.get('serial_number')
+        supplier_barcode = data.get('supplier_barcode')
+        inventory_type = data.get('inventory_type', 'standard')
+        
+        if not all([po_link_id, item_code, quantity]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        po_link = MultiGRNPOLink.query.get(po_link_id)
+        if not po_link:
+            return jsonify({'success': False, 'error': 'PO link not found'}), 404
+        
+        # Check if item already exists in line selections
+        existing_line = MultiGRNLineSelection.query.filter_by(
+            po_link_id=po_link_id,
+            item_code=item_code
+        ).first()
+        
+        if existing_line:
+            return jsonify({'success': False, 'error': 'Item already exists in this PO'}), 400
+        
+        # Create new line selection
+        line_selection = MultiGRNLineSelection(
+            po_link_id=po_link_id,
+            po_line_num=-1,  # Manual item, not from PO line
+            item_code=item_code,
+            item_description=item_description or '',
+            ordered_quantity=Decimal(str(quantity)),
+            open_quantity=Decimal(str(quantity)),
+            selected_quantity=Decimal(str(quantity)),
+            warehouse_code=warehouse_code or '7000-FG',
+            bin_location=bin_location,
+            unit_price=Decimal('0'),
+            line_status='manual',
+            inventory_type=inventory_type
+        )
+        
+        # Handle batch/serial numbers
+        if inventory_type == 'batch' and batch_number:
+            batch_data = [{
+                'BatchNumber': batch_number,
+                'Quantity': float(quantity),
+                'ExpiryDate': expiry_date if expiry_date else None,
+                'ManufacturerSerialNumber': supplier_barcode or '',
+                'InternalSerialNumber': supplier_barcode or ''
+            }]
+            line_selection.batch_numbers = json.dumps(batch_data)
+        
+        elif inventory_type == 'serial' and serial_number:
+            serial_data = [{
+                'ManufacturerSerialNumber': supplier_barcode or serial_number,
+                'InternalSerialNumber': serial_number,
+                'ExpiryDate': expiry_date if expiry_date else None,
+                'Notes': 'Manually added'
+            }]
+            line_selection.serial_numbers = json.dumps(serial_data)
+        
+        db.session.add(line_selection)
+        db.session.commit()
+        
+        logging.info(f"✅ Manual item {item_code} added to PO link {po_link_id}")
+        return jsonify({
+            'success': True,
+            'message': 'Item added successfully',
+            'line_id': line_selection.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error adding manual item: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
