@@ -192,26 +192,26 @@ class SAPMultiGRNService:
 
 
     
-    def fetch_open_purchase_orders(self, card_code):
+    def fetch_open_purchase_orders(self, card_name):
         """
         Fetch open Purchase Orders for a specific customer/supplier
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
         """
         if self.enable_mock_data:
-            logging.info(f"📋 Using mock PO data for {card_code} (ENABLE_MOCK_SAP_DATA=true)")
-            return self.get_mock_purchase_orders(card_code)
+            logging.info(f"📋 Using mock PO data for {card_name} (ENABLE_MOCK_SAP_DATA=true)")
+            return self.get_mock_purchase_orders(card_name)
         
         if not self.ensure_logged_in():
-            logging.warning(f"⚠️ SAP login failed - using mock PO data for {card_code}")
-            return self.get_mock_purchase_orders(card_code)
+            logging.warning(f"⚠️ SAP login failed - using mock PO data for {card_name}")
+            return self.get_mock_purchase_orders(card_name)
         try:
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
-                '$filter': f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'",
+                '$filter': f"CardCode eq '{card_name}' and DocumentStatus eq 'bost_Open'",
                 '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
             }
             
-            logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
+            logging.info(f"🔍 Fetching open POs for CardCode: {card_name}")
             logging.info(f"  SAP URL: {url}?$filter={params['$filter']}")
             response = self.session.get(url, params=params, timeout=30)
 
@@ -335,109 +335,12 @@ class SAPMultiGRNService:
         return {
             'success': True,
             'customers': [
-                {'CardCode': 'C00001', 'CardName': 'ABC Manufacturing Ltd'},
-                {'CardCode': 'C00002', 'CardName': 'XYZ Distributors Inc'},
-                {'CardCode': 'C00003', 'CardName': 'Global Supplies Corp'},
-                {'CardCode': 'C00004', 'CardName': 'Tech Solutions Partners'},
-                {'CardCode': 'C00005', 'CardName': 'Premier Trading Company'}
+
             ]
         }
     
     def get_mock_purchase_orders(self, card_code):
         """Generate mock purchase orders for testing without SAP connectivity"""
         return {
-            'success': True,
-            'purchase_orders': [
-                {
-                    'DocEntry': 1001,
-                    'DocNum': 'PO-2025-001',
-                    'CardCode': 'C00001',
-                    'CardName': card_name,
-                    'DocDate': '2025-10-01',
-                    'DocDueDate': '2025-10-15',
-                    'DocTotal': 15000.00,
-                    'DocumentStatus': 'bost_Open',
-                    'TotalOpenLines': 3,
-                    'OpenLines': [
-                        {
-                            'LineNum': 0,
-                            'ItemCode': 'ITEM-001',
-                            'ItemDescription': 'Product A - Standard',
-                            'Quantity': 100,
-                            'OpenQuantity': 100,
-                            'UnitPrice': 50.00,
-                            'LineTotal': 5000.00,
-                            'WarehouseCode': 'WH01',
-                            'LineStatus': 'bost_Open',
-                            'ManageSerialNumbers': None,
-                            'ManageBatchNumbers': None
-                        },
-                        {
-                            'LineNum': 1,
-                            'ItemCode': 'ITEM-002',
-                            'ItemDescription': 'Product B - Premium',
-                            'Quantity': 50,
-                            'OpenQuantity': 50,
-                            'UnitPrice': 100.00,
-                            'LineTotal': 5000.00,
-                            'WarehouseCode': 'WH01',
-                            'LineStatus': 'bost_Open',
-                            'ManageSerialNumbers': None,
-                            'ManageBatchNumbers': None
-                        },
-                        {
-                            'LineNum': 2,
-                            'ItemCode': 'ITEM-003',
-                            'ItemDescription': 'Product C - Deluxe',
-                            'Quantity': 25,
-                            'OpenQuantity': 25,
-                            'UnitPrice': 200.00,
-                            'LineTotal': 5000.00,
-                            'WarehouseCode': 'WH01',
-                            'LineStatus': 'bost_Open',
-                            'ManageSerialNumbers': None,
-                            'ManageBatchNumbers': None
-                        }
-                    ]
-                },
-                {
-                    'DocEntry': 1002,
-                    'DocNum': 'PO-2025-002',
-                    'CardCode': 'C00001',
-                    'CardName': card_name,
-                    'DocDate': '2025-10-05',
-                    'DocDueDate': '2025-10-20',
-                    'DocTotal': 8500.00,
-                    'DocumentStatus': 'bost_Open',
-                    'TotalOpenLines': 2,
-                    'OpenLines': [
-                        {
-                            'LineNum': 0,
-                            'ItemCode': 'ITEM-004',
-                            'ItemDescription': 'Service Item X',
-                            'Quantity': 10,
-                            'OpenQuantity': 10,
-                            'UnitPrice': 500.00,
-                            'LineTotal': 5000.00,
-                            'WarehouseCode': 'WH02',
-                            'LineStatus': 'bost_Open',
-                            'ManageSerialNumbers': None,
-                            'ManageBatchNumbers': None
-                        },
-                        {
-                            'LineNum': 1,
-                            'ItemCode': 'ITEM-005',
-                            'ItemDescription': 'Component Y',
-                            'Quantity': 35,
-                            'OpenQuantity': 35,
-                            'UnitPrice': 100.00,
-                            'LineTotal': 3500.00,
-                            'WarehouseCode': 'WH02',
-                            'LineStatus': 'bost_Open',
-                            'ManageSerialNumbers': None,
-                            'ManageBatchNumbers': None
-                        }
-                    ]
-                }
-            ]
+
         }
