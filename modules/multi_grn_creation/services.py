@@ -236,65 +236,7 @@ class SAPMultiGRNService:
             logging.warning(f"⚠️ Error fetching POs for {card_name} - using mock data: {str(e)}")
             return self.get_mock_purchase_orders(card_name)
     
-    def fetch_open_purchase_orders(self, card_code):
-        """
-        Fetch open Purchase Orders for a specific customer/supplier by CardCode
-        Returns only POs with DocumentStatus = 'bost_Open' and open line items
-        """
-        if self.enable_mock_data:
-            logging.info(f"📋 Using mock PO data for {card_code} (ENABLE_MOCK_SAP_DATA=true)")
-            return self.get_mock_purchase_orders(card_code)
-        
-        if not self.ensure_logged_in():
-            logging.warning(f"⚠️ SAP login failed - using mock PO data for {card_code}")
-            return self.get_mock_purchase_orders(card_code)
-        try:
-            url = f"{self.base_url}/b1s/v1/PurchaseOrders"
-            params = {
-                '$filter': f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'",
-                '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
-            }
-            
-            logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
-            logging.info(f"  SAP URL: {url}?$filter={params['$filter']}")
-            response = self.session.get(url, params=params, timeout=30)
 
-            if response.status_code == 200:
-                data = response.json()
-                pos = data.get('value', [])
-
-                open_pos = []
-                for po in pos:
-                    open_lines = [
-                        line for line in po.get('DocumentLines', [])
-                        if line.get('LineStatus') == 'bost_Open' and line.get('OpenQuantity', 0) > 0
-                    ]
-                    
-                    if open_lines:
-                        po['OpenLines'] = open_lines
-                        po['TotalOpenLines'] = len(open_lines)
-                        open_pos.append(po)
-                
-                logging.info(f"✅ Fetched {len(open_pos)} open POs for CardCode {card_code}")
-                return {'success': True, 'purchase_orders': open_pos}
-            elif response.status_code == 401:
-                self.session_id = None
-                if self.login():
-                    return self.fetch_open_purchase_orders(card_code)
-                return {'success': False, 'error': 'Authentication failed'}
-            else:
-                logging.warning(f"⚠️ Failed to fetch POs for CardCode {card_code} - using mock data: {response.text}")
-                return self.get_mock_purchase_orders(card_code)
-                
-        except requests.exceptions.ConnectionError as e:
-            logging.warning(f"⚠️ Cannot connect to SAP - using mock PO data for {card_code}")
-            return self.get_mock_purchase_orders(card_code)
-        except requests.exceptions.Timeout:
-            logging.warning(f"⚠️ SAP request timeout - using mock PO data for {card_code}")
-            return self.get_mock_purchase_orders(card_code)
-        except Exception as e:
-            logging.warning(f"⚠️ Error fetching POs for {card_code} - using mock data: {str(e)}")
-            return self.get_mock_purchase_orders(card_code)
     
     def create_purchase_delivery_note(self, grn_data):
 
