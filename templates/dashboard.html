@@ -48,17 +48,17 @@
     </div>
     {% endif %}
     
-    {% if current_user.has_permission('pick_list') %}
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card dashboard-card" data-url="{{ url_for('pick_list') }}">
-            <div class="card-body text-center">
-                <i data-feather="list" class="mb-3" style="width: 48px; height: 48px;"></i>
-                <h3>{{ stats.pick_list_count }}</h3>
-                <p>Pick Lists</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+<!--    {% if current_user.has_permission('pick_list') %}-->
+<!--    <div class="col-md-3 col-sm-6 mb-3">-->
+<!--        <div class="card dashboard-card" data-url="{{ url_for('pick_list') }}">-->
+<!--            <div class="card-body text-center">-->
+<!--                <i data-feather="list" class="mb-3" style="width: 48px; height: 48px;"></i>-->
+<!--                <h3>{{ stats.pick_list_count }}</h3>-->
+<!--                <p>Pick Lists</p>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--    {% endif %}-->
     
     {% if current_user.has_permission('inventory_counting') %}
     <div class="col-md-3 col-sm-6 mb-3">
