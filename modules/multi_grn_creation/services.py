@@ -8,31 +8,39 @@ import json
 from datetime import datetime
 import os
 from flask import current_app
+import urllib.parse
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class SAPMultiGRNService:
     """Service class for SAP B1 integration specific to Multiple GRN Creation"""
     
     def __init__(self):
-        try:
-            self.base_url = current_app.config.get('SAP_B1_SERVER', '')
-            self.username = current_app.config.get('SAP_B1_USERNAME', '')
-            self.password = current_app.config.get('SAP_B1_PASSWORD', '')
-            self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
-        except RuntimeError:
-            self.base_url = os.environ.get('SAP_B1_SERVER', '')
-            self.username = os.environ.get('SAP_B1_USERNAME', '')
-            self.password = os.environ.get('SAP_B1_PASSWORD', '')
-            self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
-        
+        self.base_url = os.environ.get('SAP_B1_SERVER', '')
+        self.username = os.environ.get('SAP_B1_USERNAME', '')
+        self.password = os.environ.get('SAP_B1_PASSWORD', '')
+        self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
         self.session_id = None
         self.session = requests.Session()
-        self.session.verify = False
+        self.session.verify = False  # For development, in production use proper SSL
         self.is_offline = False
+        # try:
+        #     self.base_url = current_app.config.get('SAP_B1_SERVER', '')
+        #     self.username = current_app.config.get('SAP_B1_USERNAME', '')
+        #     self.password = current_app.config.get('SAP_B1_PASSWORD', '')
+        #     self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
+        # except RuntimeError:
+        #     self.base_url = os.environ.get('SAP_B1_SERVER', '')
+        #     self.username = os.environ.get('SAP_B1_USERNAME', '')
+        #     self.password = os.environ.get('SAP_B1_PASSWORD', '')
+        #     self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
+        #
+        # self.session_id = None
+        # self.session = requests.Session()
+        # self.session.verify = False
+        # self.is_offline = False
         
-        if not self.session.verify:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            logging.warning("⚠️ SAP SSL verification disabled - only use in development with self-signed certificates")
+
     
     def login(self):
         """Login to SAP B1 Service Layer"""
@@ -56,12 +64,15 @@ class SAPMultiGRNService:
             response = self.session.post(login_url, json=login_data, timeout=30)
             if response.status_code == 200:
                 self.session_id = response.json().get('SessionId')
+                print("✅ SAP B1 login successful"+self.session_id)
                 logging.info("✅ SAP B1 login successful")
                 return True
             else:
+                print(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
                 logging.error(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
                 return False
         except requests.exceptions.ConnectionError as e:
+            print(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
             logging.error(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
             logging.error(f"   This may be a network issue or the SAP server may not be accessible from Replit")
             logging.error(f"   Error details: {str(e)}")
@@ -174,68 +185,31 @@ class SAPMultiGRNService:
                 logging.error(f"❌ {error_msg}")
                 return {'success': False, 'error': error_msg}
 
-    # def fetch_all_valid_customers(self):
-    #     """
-    #     Fetch all valid Business Partners for dropdown display
-    #     Uses filter: Valid eq 'tYES' and proper headers as per API spec
-    #     """
-    #     if not self.ensure_logged_in():
-    #         return {'success': False, 'error': 'SAP login failed'}
-    #
-    #     try:
-    #         filter_query = "Valid eq 'tYES'"
-    #         url = f"{self.base_url}/b1s/v1/BusinessPartners"
-    #         params = {
-    #             '$filter': filter_query,
-    #             '$select': 'CardCode,CardName,Valid'
-    #         }
-    #         headers = {'Prefer': 'odata.maxpagesize=0'}
-    #
-    #         response = self.session.get(url, params=params, headers=headers, timeout=30)
-    #
-    #         if response.status_code == 200:
-    #             data = response.json()
-    #             customers = data.get('value', [])
-    #             # Sort by CardName for better dropdown UX
-    #             #customers.sort(key=lambda x: x.get('CardName', ''))
-    #             logging.info(f"✅ Fetched {len(customers)} valid customers for dropdown")
-    #             return {'success': True, 'customers': customers}
-    #         elif response.status_code == 401:
-    #             self.session_id = None
-    #             if self.login():
-    #                 return self.fetch_all_valid_customers()
-    #             return {'success': False, 'error': 'Authentication failed'}
-    #         else:
-    #             logging.error(f"❌ Failed to fetch customers: {response.text}")
-    #             return {'success': False, 'error': response.text}
-    #
-    #     except Exception as e:
-    #         logging.error(f"❌ Error fetching customers: {str(e)}")
-    #         return {'success': False, 'error': str(e)}
+
     
-    def fetch_open_purchase_orders(self, card_code):
+    def fetch_open_purchase_orders(self, card_name):
         """
         Fetch open Purchase Orders for a specific customer/supplier
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
         """
         if not self.ensure_logged_in():
-            logging.error(f"❌ SAP login failed - cannot fetch POs for CardCode: {card_code}")
+            logging.error(f"❌ SAP login failed - cannot fetch POs for CardCode: {card_name}")
             return {'success': False, 'error': 'SAP login failed - check SAP credentials and connectivity'}
         try:
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
-                '$filter': f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'",
+                '$filter': f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'",
                 '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
             }
             
-            logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
-            logging.debug(f"  SAP URL: {url}?$filter={params['$filter']}")
+            logging.info(f"🔍 Fetching open POs for CardCode: {card_name}")
+            print(f"  SAP URL: {url}?$filter={params['$filter']}")
             response = self.session.get(url, params=params, timeout=30)
-            
+            print(response)
             if response.status_code == 200:
                 data = response.json()
                 pos = data.get('value', [])
-                
+                print(pos)
                 open_pos = []
                 for po in pos:
                     open_lines = [
@@ -248,19 +222,19 @@ class SAPMultiGRNService:
                         po['TotalOpenLines'] = len(open_lines)
                         open_pos.append(po)
                 
-                logging.info(f"✅ Fetched {len(open_pos)} open POs for CardCode {card_code}")
+                logging.info(f"✅ Fetched {len(open_pos)} open POs for CardCode {card_name}")
                 return {'success': True, 'purchase_orders': open_pos}
             elif response.status_code == 401:
                 self.session_id = None
                 if self.login():
-                    return self.fetch_open_purchase_orders(card_code)
+                    return self.fetch_open_purchase_orders(card_name)
                 return {'success': False, 'error': 'Authentication failed'}
             else:
-                logging.error(f"❌ Failed to fetch POs for CardCode {card_code}: {response.text}")
+                logging.error(f"❌ Failed to fetch POs for CardCode {card_name}: {response.text}")
                 return {'success': False, 'error': response.text}
                 
         except Exception as e:
-            logging.error(f"❌ Error fetching POs for CardCode {card_code}: {str(e)}")
+            logging.error(f"❌ Error fetching POs for CardCode {card_name}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     def create_purchase_delivery_note(self, grn_data):
