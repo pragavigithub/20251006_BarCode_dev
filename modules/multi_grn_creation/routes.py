@@ -95,13 +95,14 @@ def create_step2_select_pos(batch_id):
         return redirect(url_for('multi_grn.create_step3_select_lines', batch_id=batch_id))
     
     sap_service = SAPMultiGRNService()
-    result = sap_service.fetch_open_purchase_orders(batch.customer_name)
+    result = sap_service.fetch_open_purchase_orders(batch.customer_code)
     
     if not result['success']:
         flash(f"Error fetching Purchase Orders: {result.get('error')}", 'error')
         return redirect(url_for('multi_grn.index'))
     
     purchase_orders = result.get('purchase_orders', [])
+    logging.info(f"📊 Found {len(purchase_orders)} open POs for customer {batch.customer_name} ({batch.customer_code})")
     return render_template('multi_grn/step2_select_pos.html', batch=batch, purchase_orders=purchase_orders)
 
 @multi_grn_bp.route('/create/step3/<int:batch_id>', methods=['GET', 'POST'])
@@ -148,8 +149,8 @@ def create_step3_select_lines(batch_id):
     po_details = []
     
     for po_link in batch.po_links:
-        result = sap_service.fetch_open_purchase_orders(batch.customer_name)
-        print(result)
+        result = sap_service.fetch_open_purchase_orders(batch.customer_code)
+        logging.info(f"📊 Step 3 - Fetched PO details for {batch.customer_code}: {result.get('success')}")
         if result['success']:
             for po in result['purchase_orders']:
                 if po['DocEntry'] == po_link.po_doc_entry:

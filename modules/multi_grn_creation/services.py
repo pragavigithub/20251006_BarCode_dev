@@ -192,26 +192,26 @@ class SAPMultiGRNService:
 
 
     
-    def fetch_open_purchase_orders(self, card_name):
+    def fetch_open_purchase_orders(self, card_code):
         """
         Fetch open Purchase Orders for a specific customer/supplier
         Returns only POs with DocumentStatus = 'bost_Open' and open line items
         """
         if self.enable_mock_data:
-            logging.info(f"📋 Using mock PO data for {card_name} (ENABLE_MOCK_SAP_DATA=true)")
-            return self.get_mock_purchase_orders(card_name)
+            logging.info(f"📋 Using mock PO data for {card_code} (ENABLE_MOCK_SAP_DATA=true)")
+            return self.get_mock_purchase_orders(card_code)
         
         if not self.ensure_logged_in():
-            logging.warning(f"⚠️ SAP login failed - using mock PO data for {card_name}")
-            return self.get_mock_purchase_orders(card_name)
+            logging.warning(f"⚠️ SAP login failed - using mock PO data for {card_code}")
+            return self.get_mock_purchase_orders(card_code)
         try:
             url = f"{self.base_url}/b1s/v1/PurchaseOrders"
             params = {
-                '$filter': f"CardName eq '{card_name}' and DocumentStatus eq 'bost_Open'",
+                '$filter': f"CardCode eq '{card_code}' and DocumentStatus eq 'bost_Open'",
                 '$select': 'DocEntry,DocNum,CardCode,CardName,DocDate,DocDueDate,DocTotal,DocumentStatus,DocumentLines'
             }
             
-            logging.info(f"🔍 Fetching open POs for CardCode: {card_name}")
+            logging.info(f"🔍 Fetching open POs for CardCode: {card_code}")
             logging.info(f"  SAP URL: {url}?$filter={params['$filter']}")
             response = self.session.get(url, params=params, timeout=30)
 
@@ -343,7 +343,7 @@ class SAPMultiGRNService:
             ]
         }
     
-    def get_mock_purchase_orders(self, card_name):
+    def get_mock_purchase_orders(self, card_code):
         """Generate mock purchase orders for testing without SAP connectivity"""
         return {
             'success': True,
