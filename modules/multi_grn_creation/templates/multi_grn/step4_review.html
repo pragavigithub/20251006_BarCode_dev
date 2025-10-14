@@ -17,7 +17,7 @@
             <div class="alert alert-info">
                 <strong>Customer:</strong> {{ batch.customer_name }} ({{ batch.customer_code }})<br>
                 <strong>Total POs:</strong> {{ batch.po_links | length }}<br>
-                <strong>Total Items:</strong> {{ batch.po_links | sum(attribute='line_selections.count') }}
+                <strong>Total Items:</strong> {% set total_items = namespace(count=0) %}{% for po_link in batch.po_links %}{% set total_items.count = total_items.count + (po_link.line_selections | length) %}{% endfor %}{{ total_items.count }}
             </div>
 
             {% for po_link in batch.po_links %}

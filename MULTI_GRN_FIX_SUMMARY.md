@@ -80,3 +80,43 @@ open_quantity=Decimal(str(line_data.get('OpenQuantity', line_data.get('Quantity'
 ✅ The application now handles SAP responses gracefully, even when `OpenQuantity` is missing
 ✅ Falls back to using `Quantity` field when `OpenQuantity` is not available
 ✅ Users can successfully proceed to the Review step without errors
+
+---
+
+## Additional Fix: Template TypeError in Review Step
+
+### Issue
+When accessing the Review step (Step 4), the application crashed with:
+```
+TypeError: unsupported operand type(s) for +: 'int' and 'builtin_function_or_method'
+```
+
+### Root Cause
+In the template `step4_review.html` line 20, the code was trying to use:
+```jinja
+{{ batch.po_links | sum(attribute='line_selections.count') }}
+```
+
+The problem is that `count` is a method in SQLAlchemy relationships, not an attribute. When Jinja2 accessed it as an attribute, it got the method object itself, which cannot be summed with integers.
+
+### Solution (Line 23 in step4_review.html)
+Changed from using `sum` with `count` attribute to manually iterating and counting:
+
+**Before:**
+```jinja
+{{ batch.po_links | sum(attribute='line_selections.count') }}
+```
+
+**After:**
+```jinja
+{% set total_items = namespace(count=0) %}
+{% for po_link in batch.po_links %}
+  {% set total_items.count = total_items.count + (po_link.line_selections | length) %}
+{% endfor %}
+{{ total_items.count }}
+```
+
+### Result
+✅ The Review step now displays correctly
+✅ Total items count is calculated properly using the `length` filter
+✅ Users can review their selections before posting to SAP
