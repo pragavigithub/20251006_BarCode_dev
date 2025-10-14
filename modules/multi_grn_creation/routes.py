@@ -122,7 +122,8 @@ def create_step3_select_lines(batch_id):
             for line_data_json in selected_lines:
                 line_data = json.loads(line_data_json)
                 qty_key = f'qty_po_{po_link.id}_line_{line_data["LineNum"]}'
-                selected_qty = Decimal(request.form.get(qty_key, line_data['OpenQuantity']))
+                open_qty = line_data.get('OpenQuantity', line_data.get('Quantity', 0))
+                selected_qty = Decimal(request.form.get(qty_key, open_qty))
                 
                 if selected_qty > 0:
                     line_selection = MultiGRNLineSelection(
@@ -130,8 +131,8 @@ def create_step3_select_lines(batch_id):
                         po_line_num=line_data['LineNum'],
                         item_code=line_data['ItemCode'],
                         item_description=line_data.get('ItemDescription', ''),
-                        ordered_quantity=Decimal(str(line_data['Quantity'])),
-                        open_quantity=Decimal(str(line_data['OpenQuantity'])),
+                        ordered_quantity=Decimal(str(line_data.get('Quantity', 0))),
+                        open_quantity=Decimal(str(line_data.get('OpenQuantity', line_data.get('Quantity', 0)))),
                         selected_quantity=selected_qty,
                         warehouse_code=line_data.get('WarehouseCode', ''),
                         unit_price=Decimal(str(line_data.get('UnitPrice', 0))),

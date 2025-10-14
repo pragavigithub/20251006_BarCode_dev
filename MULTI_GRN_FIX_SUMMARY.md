@@ -46,3 +46,37 @@ https://192.168.1.4:50000/b1s/v1/PurchaseOrders?$filter=CardName eq '3D SEALS PR
 ```
 
 This query now matches what the Multi GRN module uses internally.
+
+---
+
+## Additional Fix: OpenQuantity KeyError
+
+### Issue
+When clicking "Next: Review" button in Step 3, the application crashed with:
+```
+KeyError: 'OpenQuantity'
+```
+
+### Root Cause
+The SAP API doesn't consistently return the `OpenQuantity` field in all document line items. The code was using direct dictionary access `line_data['OpenQuantity']` which failed when this field was missing.
+
+### Solution (Lines 128, 137-138 in routes.py)
+Changed from direct dictionary access to safe `.get()` method with fallback values:
+
+**Before:**
+```python
+selected_qty = Decimal(request.form.get(qty_key, line_data['OpenQuantity']))
+open_quantity=Decimal(str(line_data['OpenQuantity']))
+```
+
+**After:**
+```python
+open_qty = line_data.get('OpenQuantity', line_data.get('Quantity', 0))
+selected_qty = Decimal(request.form.get(qty_key, open_qty))
+open_quantity=Decimal(str(line_data.get('OpenQuantity', line_data.get('Quantity', 0))))
+```
+
+### Result
+✅ The application now handles SAP responses gracefully, even when `OpenQuantity` is missing
+✅ Falls back to using `Quantity` field when `OpenQuantity` is not available
+✅ Users can successfully proceed to the Review step without errors
