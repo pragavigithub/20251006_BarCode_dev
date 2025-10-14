@@ -37,6 +37,26 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-14 - MultiGRN Serial/Batch Number Support and Barcode Generation
+- **File**: `mysql/changes/2025-10-14_multi_grn_enhancements.sql`
+- **Description**: Added serial/batch number support and barcode generation to MultiGRN module
+- **Tables Affected**: multi_grn_batches, multi_grn_line_selections
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - Added `batch_number` VARCHAR(50) UNIQUE column to `multi_grn_batches` for better tracking
+  - Added `serial_numbers` TEXT column to `multi_grn_line_selections` to store serial number data (JSON format)
+  - Added `batch_numbers` TEXT column to `multi_grn_line_selections` to store batch number data (JSON format)
+  - Added `barcode_generated` BOOLEAN column to `multi_grn_line_selections` to track barcode generation status
+  - Created index on `multi_grn_batches.batch_number` for faster lookups
+  - Created index on `multi_grn_line_selections.barcode_generated` for filtering
+- **Notes**: 
+  - Serial and batch numbers are stored as JSON text for flexibility with SAP B1 API format
+  - Batch numbers are auto-generated with format: MGRN-YYYYMMDDHHmmss
+  - Barcode generation API endpoint added at `/multi-grn/api/generate-barcode`
+
+---
+
 ### Template for New Migration Entry
 ```markdown
 ### YYYY-MM-DD HH:MM - Migration Title

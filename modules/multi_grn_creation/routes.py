@@ -41,8 +41,12 @@ def create_step1_customer():
             flash('Please select a customer', 'error')
             return redirect(url_for('multi_grn.create_step1_customer'))
         
+        from datetime import datetime
+        batch_number = f"MGRN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
         batch = MultiGRNBatch(
             user_id=current_user.id,
+            batch_number=batch_number,
             customer_code=customer_code,
             customer_name=customer_name,
             status='draft'
@@ -50,7 +54,7 @@ def create_step1_customer():
         db.session.add(batch)
         db.session.commit()
         
-        logging.info(f"✅ Created GRN batch {batch.id} for customer {customer_name}")
+        logging.info(f"✅ Created GRN batch {batch.batch_number} for customer {customer_name}")
         return redirect(url_for('multi_grn.create_step2_select_pos', batch_id=batch.id))
     
     return render_template('multi_grn/step1_customer.html')
@@ -203,6 +207,15 @@ def create_step5_post(batch_id):
                     'Quantity': float(line.selected_quantity),
                     'WarehouseCode': line.warehouse_code or '7000-FG'
                 }
+                
+                if line.serial_numbers:
+                    serial_data = json.loads(line.serial_numbers) if isinstance(line.serial_numbers, str) else line.serial_numbers
+                    doc_line['SerialNumbers'] = serial_data
+                
+                if line.batch_numbers:
+                    batch_data = json.loads(line.batch_numbers) if isinstance(line.batch_numbers, str) else line.batch_numbers
+                    doc_line['BatchNumbers'] = batch_data
+                
                 document_lines.append(doc_line)
             
             grn_data = {
@@ -293,3 +306,38 @@ def api_customers_dropdown():
     
     customers = result.get('customers', [])
     return jsonify({'success': True, 'customers': customers})
+
+@multi_grn_bp.route('/api/generate-barcode', methods=['POST'])
+@login_required
+def generate_barcode():
+    """Generate barcode/QR code for MultiGRN item"""
+    try:
+        data = request.get_json()
+        item_code = data.get('item_code')
+        item_name = data.get('item_name', '')
+        batch_number = data.get('batch_number', '')
+        serial_number = data.get('serial_number', '')
+        grn_doc_num = data.get('grn_doc_num', '')
+        batch_id = data.get('batch_id')
+        
+        if not item_code:
+            return jsonify({'success': False, 'error': 'Item code is required'}), 400
+        
+        qr_string = f"{item_code}|{grn_doc_num}|{item_name}|{batch_number or serial_number or 'N/A'}"
+        
+        return jsonify({
+            'success': True,
+            'qr_data': qr_string,
+            'label_info': {
+                'item_code': item_code,
+                'grn_doc_num': grn_doc_num,
+                'item_name': item_name,
+                'batch_number': batch_number,
+                'serial_number': serial_number,
+                'batch_id': batch_id
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Error generating barcode: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
