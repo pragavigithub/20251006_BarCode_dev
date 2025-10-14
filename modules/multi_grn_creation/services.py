@@ -24,7 +24,7 @@ class SAPMultiGRNService:
         self.session = requests.Session()
         self.session.verify = False  # For development, in production use proper SSL
         self.is_offline = False
-        self.enable_mock_data = os.environ.get('ENABLE_MOCK_SAP_DATA', 'true').lower() == 'true'
+        self.enable_mock_data = os.environ.get('ENABLE_MOCK_SAP_DATA', 'false').lower() == 'true'
         # try:
         #     self.base_url = current_app.config.get('SAP_B1_SERVER', '')
         #     self.username = current_app.config.get('SAP_B1_USERNAME', '')
@@ -257,8 +257,20 @@ class SAPMultiGRNService:
         Create a Purchase Delivery Note (GRN) in SAP B1
         grn_data: Dictionary containing GRN details matching SAP B1 PurchaseDeliveryNotes schema
         """
+        if self.enable_mock_data:
+            logging.info("📋 Using mock GRN creation (ENABLE_MOCK_SAP_DATA=true)")
+            import random
+            mock_doc_entry = random.randint(5000, 9999)
+            mock_doc_num = f"GRN-{mock_doc_entry}"
+            return {
+                'success': True,
+                'doc_entry': mock_doc_entry,
+                'doc_num': mock_doc_num,
+                'response': {'DocEntry': mock_doc_entry, 'DocNum': mock_doc_num}
+            }
+        
         if not self.ensure_logged_in():
-            return {'success': False, 'error': 'SAP login failed'}
+            return {'success': False, 'error': 'SAP login failed - GRN not created'}
         
         try:
             url = f"{self.base_url}/b1s/v1/PurchaseDeliveryNotes"
@@ -286,6 +298,34 @@ class SAPMultiGRNService:
                 logging.error(f"❌ Failed to create GRN: {error_msg}")
                 return {'success': False, 'error': error_msg, 'status_code': response.status_code}
                 
+        except requests.exceptions.ConnectionError as e:
+            if self.enable_mock_data:
+                logging.warning(f"⚠️ Cannot connect to SAP (mock mode) - using mock GRN creation")
+                import random
+                mock_doc_entry = random.randint(5000, 9999)
+                mock_doc_num = f"GRN-{mock_doc_entry}"
+                return {
+                    'success': True,
+                    'doc_entry': mock_doc_entry,
+                    'doc_num': mock_doc_num,
+                    'response': {'DocEntry': mock_doc_entry, 'DocNum': mock_doc_num}
+                }
+            logging.error(f"❌ Cannot connect to SAP server - GRN not created: {str(e)}")
+            return {'success': False, 'error': f'Cannot connect to SAP server: {str(e)}'}
+        except requests.exceptions.Timeout:
+            if self.enable_mock_data:
+                logging.warning(f"⚠️ SAP timeout (mock mode) - using mock GRN creation")
+                import random
+                mock_doc_entry = random.randint(5000, 9999)
+                mock_doc_num = f"GRN-{mock_doc_entry}"
+                return {
+                    'success': True,
+                    'doc_entry': mock_doc_entry,
+                    'doc_num': mock_doc_num,
+                    'response': {'DocEntry': mock_doc_entry, 'DocNum': mock_doc_num}
+                }
+            logging.error(f"❌ SAP request timeout - GRN not created")
+            return {'success': False, 'error': 'SAP request timeout - server did not respond'}
         except Exception as e:
             logging.error(f"❌ Error creating GRN: {str(e)}")
             return {'success': False, 'error': str(e)}
