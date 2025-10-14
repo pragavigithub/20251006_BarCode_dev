@@ -64,15 +64,15 @@ class SAPMultiGRNService:
             response = self.session.post(login_url, json=login_data, timeout=30)
             if response.status_code == 200:
                 self.session_id = response.json().get('SessionId')
-                print("✅ SAP B1 login successful"+self.session_id)
+                logging.info("✅ SAP B1 login successful"+self.session_id)
                 logging.info("✅ SAP B1 login successful")
                 return True
             else:
-                print(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
+                logging.warning(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
                 logging.error(f"❌ SAP B1 login failed (Status {response.status_code}): {response.text}")
                 return False
         except requests.exceptions.ConnectionError as e:
-            print(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
+            logging.error(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
             logging.error(f"❌ SAP B1 connection failed: Cannot reach {self.base_url}")
             logging.error(f"   This may be a network issue or the SAP server may not be accessible from Replit")
             logging.error(f"   Error details: {str(e)}")
@@ -203,13 +203,13 @@ class SAPMultiGRNService:
             }
             
             logging.info(f"🔍 Fetching open POs for CardCode: {card_name}")
-            print(f"  SAP URL: {url}?$filter={params['$filter']}")
+            logging.info(f"  SAP URL: {url}?$filter={params['$filter']}")
             response = self.session.get(url, params=params, timeout=30)
-            print(response)
+
             if response.status_code == 200:
                 data = response.json()
                 pos = data.get('value', [])
-                print(pos)
+
                 open_pos = []
                 for po in pos:
                     open_lines = [
