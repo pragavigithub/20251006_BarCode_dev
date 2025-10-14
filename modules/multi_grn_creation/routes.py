@@ -199,15 +199,26 @@ def create_step5_post(batch_id):
             
             document_lines = []
             for line in po_link.line_selections:
-                doc_line = {
-                    'BaseType': 22,
-                    'BaseEntry': po_link.po_doc_entry,
-                    'BaseLine': line.po_line_num,
-                    'ItemCode': line.item_code,
-                    'Quantity': float(line.selected_quantity),
-                    'WarehouseCode': line.warehouse_code or '7000-FG'
-                }
+                # Check if this is a manual item (not from PO line)
+                if line.line_status == 'manual' or line.po_line_num == -1:
+                    # Manual item - no base reference to PO
+                    doc_line = {
+                        'ItemCode': line.item_code,
+                        'Quantity': float(line.selected_quantity),
+                        'WarehouseCode': line.warehouse_code or '7000-FG'
+                    }
+                else:
+                    # PO-based item - include base reference
+                    doc_line = {
+                        'BaseType': 22,
+                        'BaseEntry': po_link.po_doc_entry,
+                        'BaseLine': line.po_line_num,
+                        'ItemCode': line.item_code,
+                        'Quantity': float(line.selected_quantity),
+                        'WarehouseCode': line.warehouse_code or '7000-FG'
+                    }
                 
+                # Add batch/serial numbers if present
                 if line.serial_numbers:
                     serial_data = json.loads(line.serial_numbers) if isinstance(line.serial_numbers, str) else line.serial_numbers
                     doc_line['SerialNumbers'] = serial_data
@@ -391,7 +402,6 @@ def add_manual_item():
         expiry_date = data.get('expiry_date')
         serial_number = data.get('serial_number')
         supplier_barcode = data.get('supplier_barcode')
-        inventory_type = data.get('inventory_type', 'standard')
         
         if not all([po_link_id, item_code, quantity]):
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
@@ -409,6 +419,18 @@ def add_manual_item():
         if existing_line:
             return jsonify({'success': False, 'error': 'Item already exists in this PO'}), 400
         
+        # SERVER-SIDE VALIDATION: Validate item code with SAP to get canonical inventory type
+        sap_service = SAPMultiGRNService()
+        validation_result = sap_service.validate_item_code(item_code)
+        
+        if not validation_result['success']:
+            return jsonify({'success': False, 'error': f'Item validation failed: {validation_result.get("error")}'}), 400
+        
+        # Use server-validated inventory type, not client-provided value
+        inventory_type = validation_result['inventory_type']
+        batch_managed = validation_result['batch_managed']
+        serial_managed = validation_result['serial_managed']
+        
         # Create new line selection
         line_selection = MultiGRNLineSelection(
             po_link_id=po_link_id,
@@ -425,8 +447,8 @@ def add_manual_item():
             inventory_type=inventory_type
         )
         
-        # Handle batch/serial numbers
-        if inventory_type == 'batch' and batch_number:
+        # Handle batch/serial numbers based on server-validated type
+        if batch_managed and batch_number:
             batch_data = [{
                 'BatchNumber': batch_number,
                 'Quantity': float(quantity),
@@ -436,7 +458,7 @@ def add_manual_item():
             }]
             line_selection.batch_numbers = json.dumps(batch_data)
         
-        elif inventory_type == 'serial' and serial_number:
+        elif serial_managed and serial_number:
             serial_data = [{
                 'ManufacturerSerialNumber': supplier_barcode or serial_number,
                 'InternalSerialNumber': serial_number,
@@ -445,10 +467,17 @@ def add_manual_item():
             }]
             line_selection.serial_numbers = json.dumps(serial_data)
         
+        # Validate that required batch/serial data is provided
+        if batch_managed and not batch_number:
+            return jsonify({'success': False, 'error': 'Batch number is required for batch-managed items'}), 400
+        
+        if serial_managed and not serial_number:
+            return jsonify({'success': False, 'error': 'Serial number is required for serial-managed items'}), 400
+        
         db.session.add(line_selection)
         db.session.commit()
         
-        logging.info(f"✅ Manual item {item_code} added to PO link {po_link_id}")
+        logging.info(f"✅ Manual item {item_code} added to PO link {po_link_id} (type: {inventory_type})")
         return jsonify({
             'success': True,
             'message': 'Item added successfully',
