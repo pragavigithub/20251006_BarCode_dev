@@ -10,7 +10,7 @@ from modules.multi_grn_creation.services import SAPMultiGRNService
 import logging
 from datetime import datetime, date
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 multi_grn_bp = Blueprint('multi_grn', __name__, url_prefix='/multi-grn')
 
@@ -390,7 +390,11 @@ def validate_item():
 def add_manual_item():
     """Add a manual item to a PO link"""
     try:
+        # Parse and validate JSON request body
         data = request.get_json()
+        if data is None:
+            return jsonify({'success': False, 'error': 'Invalid or missing JSON request body'}), 400
+        
         po_link_id = data.get('po_link_id')
         item_code = data.get('item_code')
         item_description = data.get('item_description')
@@ -405,6 +409,20 @@ def add_manual_item():
         
         if not all([po_link_id, item_code, quantity]):
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    
+    except Exception as parse_error:
+        # Catch JSON parsing errors (BadRequest, etc.)
+        return jsonify({'success': False, 'error': f'Invalid JSON format: {str(parse_error)}'}), 400
+    
+    try:
+        
+        # Validate quantity format early
+        try:
+            quantity_decimal = Decimal(str(quantity))
+            if quantity_decimal <= 0:
+                return jsonify({'success': False, 'error': 'Quantity must be positive'}), 400
+        except (ValueError, TypeError, InvalidOperation):
+            return jsonify({'success': False, 'error': 'Invalid quantity format (must be numeric)'}), 400
         
         po_link = MultiGRNPOLink.query.get(po_link_id)
         if not po_link:
@@ -447,32 +465,103 @@ def add_manual_item():
             inventory_type=inventory_type
         )
         
-        # Handle batch/serial numbers based on server-validated type
-        if batch_managed and batch_number:
-            batch_data = [{
-                'BatchNumber': batch_number,
-                'Quantity': float(quantity),
-                'ExpiryDate': expiry_date if expiry_date else None,
-                'ManufacturerSerialNumber': supplier_barcode or '',
-                'InternalSerialNumber': supplier_barcode or ''
-            }]
-            line_selection.batch_numbers = json.dumps(batch_data)
+        # SERVER-SIDE VALIDATION: Handle batch/serial numbers based on server-validated type
+        if batch_managed:
+            batch_numbers_data = data.get('batch_numbers')
+            if not batch_numbers_data:
+                return jsonify({'success': False, 'error': 'Batch numbers are required for batch-managed items'}), 400
+            
+            # Parse JSON if string
+            if isinstance(batch_numbers_data, str):
+                try:
+                    batch_array = json.loads(batch_numbers_data)
+                except json.JSONDecodeError:
+                    return jsonify({'success': False, 'error': 'Invalid batch numbers JSON format'}), 400
+            else:
+                batch_array = batch_numbers_data
+            
+            # Validate batch array
+            if not isinstance(batch_array, list) or len(batch_array) == 0:
+                return jsonify({'success': False, 'error': 'At least one batch entry is required'}), 400
+            
+            total_batch_qty = Decimal('0')
+            for idx, batch in enumerate(batch_array):
+                # Validate entry is a dict
+                if not isinstance(batch, dict):
+                    return jsonify({'success': False, 'error': f'Batch #{idx+1}: Invalid batch entry format (must be an object)'}), 400
+                
+                # Validate required fields
+                if not batch.get('BatchNumber'):
+                    return jsonify({'success': False, 'error': f'Batch #{idx+1}: BatchNumber is required'}), 400
+                if not batch.get('Quantity'):
+                    return jsonify({'success': False, 'error': f'Batch #{idx+1}: Quantity is required'}), 400
+                
+                try:
+                    batch_qty = Decimal(str(batch['Quantity']))
+                    if batch_qty <= 0:
+                        return jsonify({'success': False, 'error': f'Batch #{idx+1}: Quantity must be positive'}), 400
+                    total_batch_qty += batch_qty
+                except (ValueError, TypeError, InvalidOperation):
+                    return jsonify({'success': False, 'error': f'Batch #{idx+1}: Invalid quantity format (must be numeric)'}), 400
+            
+            # Validate total batch quantity matches item quantity
+            item_qty = Decimal(str(quantity))
+            if abs(total_batch_qty - item_qty) > Decimal('0.001'):
+                return jsonify({'success': False, 'error': f'Total batch quantity ({total_batch_qty}) must equal item quantity ({item_qty})'}), 400
+            
+            # Store normalized JSON
+            line_selection.batch_numbers = json.dumps(batch_array)
         
-        elif serial_managed and serial_number:
-            serial_data = [{
-                'ManufacturerSerialNumber': supplier_barcode or serial_number,
-                'InternalSerialNumber': serial_number,
-                'ExpiryDate': expiry_date if expiry_date else None,
-                'Notes': 'Manually added'
-            }]
-            line_selection.serial_numbers = json.dumps(serial_data)
-        
-        # Validate that required batch/serial data is provided
-        if batch_managed and not batch_number:
-            return jsonify({'success': False, 'error': 'Batch number is required for batch-managed items'}), 400
-        
-        if serial_managed and not serial_number:
-            return jsonify({'success': False, 'error': 'Serial number is required for serial-managed items'}), 400
+        elif serial_managed:
+            serial_numbers_data = data.get('serial_numbers')
+            if not serial_numbers_data:
+                return jsonify({'success': False, 'error': 'Serial numbers are required for serial-managed items'}), 400
+            
+            # Validate quantity is a positive integer for serial-managed items
+            try:
+                item_qty_decimal = Decimal(str(quantity))
+                if item_qty_decimal <= 0:
+                    return jsonify({'success': False, 'error': 'Quantity must be positive for serial-managed items'}), 400
+                
+                # Check if quantity is an integer
+                if item_qty_decimal % 1 != 0:
+                    return jsonify({'success': False, 'error': 'Quantity must be a whole number for serial-managed items (one serial per unit)'}), 400
+                
+                item_qty = int(item_qty_decimal)
+            except (ValueError, TypeError, InvalidOperation):
+                return jsonify({'success': False, 'error': 'Invalid quantity format (must be numeric)'}), 400
+            
+            # Parse JSON if string
+            if isinstance(serial_numbers_data, str):
+                try:
+                    serial_array = json.loads(serial_numbers_data)
+                except json.JSONDecodeError:
+                    return jsonify({'success': False, 'error': 'Invalid serial numbers JSON format'}), 400
+            else:
+                serial_array = serial_numbers_data
+            
+            # Validate serial array
+            if not isinstance(serial_array, list) or len(serial_array) == 0:
+                return jsonify({'success': False, 'error': 'At least one serial number is required'}), 400
+            
+            # Validate exact 1:1 ratio between serial entries and quantity
+            if len(serial_array) != item_qty:
+                return jsonify({'success': False, 'error': f'Number of serial entries ({len(serial_array)}) must exactly equal quantity ({item_qty})'}), 400
+            
+            # Validate each serial entry
+            for idx, serial in enumerate(serial_array):
+                # Validate entry is a dict
+                if not isinstance(serial, dict):
+                    return jsonify({'success': False, 'error': f'Serial #{idx+1}: Invalid serial entry format (must be an object)'}), 400
+                
+                # Validate required fields
+                if not serial.get('ManufacturerSerialNumber'):
+                    return jsonify({'success': False, 'error': f'Serial #{idx+1}: ManufacturerSerialNumber is required'}), 400
+                if not serial.get('InternalSerialNumber'):
+                    return jsonify({'success': False, 'error': f'Serial #{idx+1}: InternalSerialNumber is required'}), 400
+            
+            # Store normalized JSON
+            line_selection.serial_numbers = json.dumps(serial_array)
         
         db.session.add(line_selection)
         db.session.commit()

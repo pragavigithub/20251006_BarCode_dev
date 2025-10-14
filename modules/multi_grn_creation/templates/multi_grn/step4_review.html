@@ -130,28 +130,39 @@
                     </div>
                     
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label for="bin_location" class="form-label">Bin Location</label>
                             <input type="text" class="form-control" id="bin_location" name="bin_location">
                         </div>
-                        <div class="col-md-6" id="batch_number_field" style="display: none;">
-                            <label for="batch_number" class="form-label">Batch Number</label>
-                            <input type="text" class="form-control" id="batch_number" name="batch_number">
-                        </div>
-                        <div class="col-md-6" id="serial_number_field" style="display: none;">
-                            <label for="serial_number" class="form-label">Serial Number</label>
-                            <input type="text" class="form-control" id="serial_number" name="serial_number">
+                    </div>
+                    
+                    <!-- Serial Numbers Section (for serial-managed items) -->
+                    <div id="serial_numbers_section" style="display: none;">
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Serial Numbers</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="serial_numbers_container"></div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="addSerialNumberRow()">
+                                    <i class="fas fa-plus"></i> Add Serial Number
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="row mb-3">
-                        <div class="col-md-6" id="expiry_date_field" style="display: none;">
-                            <label for="expiry_date" class="form-label">Expiration Date</label>
-                            <input type="date" class="form-control" id="expiry_date" name="expiry_date">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="supplier_barcode" class="form-label">Supplier Barcode</label>
-                            <input type="text" class="form-control" id="supplier_barcode" name="supplier_barcode" placeholder="Scan or enter supplier barcode">
+                    <!-- Batch Numbers Section (for batch-managed items) -->
+                    <div id="batch_numbers_section" style="display: none;">
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Batch Numbers</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="batch_numbers_container"></div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="addBatchNumberRow()">
+                                    <i class="fas fa-plus"></i> Add Batch
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
@@ -171,6 +182,8 @@
 <script>
 let currentPoLinkId = null;
 let currentInventoryType = 'standard';
+let serialNumberCounter = 0;
+let batchNumberCounter = 0;
 
 function openAddItemModal(poLinkId, poDocNum) {
     currentPoLinkId = poLinkId;
@@ -183,10 +196,15 @@ function openAddItemModal(poLinkId, poDocNum) {
     document.getElementById('uom').value = '';
     document.getElementById('item_validation_msg').innerHTML = '';
     
-    // Hide conditional fields
-    document.getElementById('batch_number_field').style.display = 'none';
-    document.getElementById('serial_number_field').style.display = 'none';
-    document.getElementById('expiry_date_field').style.display = 'none';
+    // Hide all conditional sections
+    document.getElementById('serial_numbers_section').style.display = 'none';
+    document.getElementById('batch_numbers_section').style.display = 'none';
+    
+    // Clear containers
+    document.getElementById('serial_numbers_container').innerHTML = '';
+    document.getElementById('batch_numbers_container').innerHTML = '';
+    serialNumberCounter = 0;
+    batchNumberCounter = 0;
     
     const modal = new bootstrap.Modal(document.getElementById('addItemModal'));
     modal.show();
@@ -216,21 +234,18 @@ function validateItemCode() {
             document.getElementById('item_name').value = data.item_name || '';
             document.getElementById('uom').value = data.uom || 'NOS';
             
-            // Show/hide fields based on inventory type
+            // Hide all sections first
+            document.getElementById('serial_numbers_section').style.display = 'none';
+            document.getElementById('batch_numbers_section').style.display = 'none';
+            
+            // Show appropriate section based on inventory type
             if (data.inventory_type === 'serial') {
-                document.getElementById('serial_number_field').style.display = 'block';
-                document.getElementById('expiry_date_field').style.display = 'block';
-                document.getElementById('batch_number_field').style.display = 'none';
-                msgDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Serial managed item</small>';
+                document.getElementById('serial_numbers_section').style.display = 'block';
+                msgDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Serial managed item - Add serial numbers below</small>';
             } else if (data.inventory_type === 'batch') {
-                document.getElementById('batch_number_field').style.display = 'block';
-                document.getElementById('expiry_date_field').style.display = 'block';
-                document.getElementById('serial_number_field').style.display = 'none';
-                msgDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Batch managed item</small>';
+                document.getElementById('batch_numbers_section').style.display = 'block';
+                msgDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Batch managed item - Add batch details below</small>';
             } else {
-                document.getElementById('batch_number_field').style.display = 'none';
-                document.getElementById('serial_number_field').style.display = 'none';
-                document.getElementById('expiry_date_field').style.display = 'none';
                 msgDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Standard item</small>';
             }
         } else {
@@ -242,6 +257,151 @@ function validateItemCode() {
     .catch(err => {
         msgDiv.innerHTML = `<small class="text-danger"><i class="fas fa-times"></i> Error: ${err.message}</small>`;
     });
+}
+
+function addSerialNumberRow() {
+    const container = document.getElementById('serial_numbers_container');
+    const rowId = `serial_row_${serialNumberCounter++}`;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const row = document.createElement('div');
+    row.id = rowId;
+    row.className = 'serial-number-row mb-3 p-3 border rounded';
+    row.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Manufacturer Serial Number</label>
+                <input type="text" class="form-control serial-mfg-number" placeholder="MFG-SN-001" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Internal Serial Number</label>
+                <input type="text" class="form-control serial-int-number" placeholder="INT-SN-001" required>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-5">
+                <label class="form-label">Manufacture Date</label>
+                <input type="date" class="form-control serial-mfg-date" value="${today}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Expiry Date</label>
+                <input type="date" class="form-control serial-exp-date">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeRow('${rowId}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-12">
+                <label class="form-label">Notes</label>
+                <input type="text" class="form-control serial-notes" placeholder="Optional notes">
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(row);
+}
+
+function addBatchNumberRow() {
+    const container = document.getElementById('batch_numbers_container');
+    const rowId = `batch_row_${batchNumberCounter++}`;
+    
+    const row = document.createElement('div');
+    row.id = rowId;
+    row.className = 'batch-number-row mb-3 p-3 border rounded';
+    row.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label">Batch Number</label>
+                <input type="text" class="form-control batch-number" placeholder="BATCH-001" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Quantity</label>
+                <input type="number" step="0.001" class="form-control batch-quantity" placeholder="1.0" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Expiry Date</label>
+                <input type="date" class="form-control batch-exp-date">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeRow('${rowId}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <label class="form-label">Manufacturer Serial Number</label>
+                <input type="text" class="form-control batch-mfg-serial" placeholder="MFG-SN-001">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Internal Serial Number</label>
+                <input type="text" class="form-control batch-int-serial" placeholder="INT-SN-001">
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(row);
+}
+
+function removeRow(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) {
+        row.remove();
+    }
+}
+
+function collectSerialNumbers() {
+    const serialRows = document.querySelectorAll('.serial-number-row');
+    const serialNumbers = [];
+    
+    serialRows.forEach(row => {
+        const mfgNumber = row.querySelector('.serial-mfg-number').value;
+        const intNumber = row.querySelector('.serial-int-number').value;
+        const mfgDate = row.querySelector('.serial-mfg-date').value;
+        const expDate = row.querySelector('.serial-exp-date').value;
+        const notes = row.querySelector('.serial-notes').value;
+        
+        if (mfgNumber && intNumber) {
+            serialNumbers.push({
+                ManufacturerSerialNumber: mfgNumber,
+                InternalSerialNumber: intNumber,
+                ManufactureDate: mfgDate || null,
+                ExpiryDate: expDate || null,
+                Notes: notes || 'Manually added'
+            });
+        }
+    });
+    
+    return serialNumbers;
+}
+
+function collectBatchNumbers() {
+    const batchRows = document.querySelectorAll('.batch-number-row');
+    const batchNumbers = [];
+    
+    batchRows.forEach(row => {
+        const batchNumber = row.querySelector('.batch-number').value;
+        const quantity = row.querySelector('.batch-quantity').value;
+        const expDate = row.querySelector('.batch-exp-date').value;
+        const mfgSerial = row.querySelector('.batch-mfg-serial').value;
+        const intSerial = row.querySelector('.batch-int-serial').value;
+        
+        if (batchNumber && quantity) {
+            batchNumbers.push({
+                BatchNumber: batchNumber,
+                Quantity: parseFloat(quantity),
+                ExpiryDate: expDate || null,
+                ManufacturerSerialNumber: mfgSerial || '',
+                InternalSerialNumber: intSerial || ''
+            });
+        }
+    });
+    
+    return batchNumbers;
 }
 
 function submitAddItem() {
@@ -258,6 +418,42 @@ function submitAddItem() {
     if (!document.getElementById('item_name').value) {
         alert('Please validate the item code first');
         return;
+    }
+    
+    // Collect serial/batch numbers based on item type
+    if (currentInventoryType === 'serial') {
+        const serialNumbers = collectSerialNumbers();
+        const quantity = parseFloat(data.quantity);
+        
+        if (serialNumbers.length === 0) {
+            alert('Please add at least one serial number');
+            return;
+        }
+        
+        if (serialNumbers.length !== quantity) {
+            alert(`You need exactly ${quantity} serial numbers (one per unit). Currently you have ${serialNumbers.length}.`);
+            return;
+        }
+        
+        data.serial_numbers = JSON.stringify(serialNumbers);
+    } else if (currentInventoryType === 'batch') {
+        const batchNumbers = collectBatchNumbers();
+        
+        if (batchNumbers.length === 0) {
+            alert('Please add at least one batch');
+            return;
+        }
+        
+        // Validate total batch quantity matches item quantity
+        const totalBatchQty = batchNumbers.reduce((sum, batch) => sum + batch.Quantity, 0);
+        const itemQty = parseFloat(data.quantity);
+        
+        if (Math.abs(totalBatchQty - itemQty) > 0.001) {
+            alert(`Total batch quantity (${totalBatchQty}) must equal item quantity (${itemQty})`);
+            return;
+        }
+        
+        data.batch_numbers = JSON.stringify(batchNumbers);
     }
     
     fetch('{{ url_for("multi_grn.add_manual_item") }}', {
