@@ -283,6 +283,109 @@ class SAPMultiGRNService:
             ]
         }
     
+    def validate_item_code(self, item_code):
+        """
+        Validate item code and get batch/serial management info
+        Uses SAP B1 SQLQueries endpoint to check item properties
+        """
+        if not self.ensure_logged_in():
+            logging.warning(f"⚠️ SAP login failed - cannot validate item {item_code}")
+            return {'success': False, 'error': 'SAP login failed'}
+        
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('ItemCode_Batch_Serial_Val')/List"
+            payload = {
+                "ParamList": f"itemCode='{item_code}'"
+            }
+            
+            logging.info(f"🔍 Validating item code: {item_code}")
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('value', [])
+                
+                if not items:
+                    logging.warning(f"⚠️ Item code {item_code} not found in SAP")
+                    return {'success': False, 'error': f'Item code {item_code} not found'}
+                
+                item_data = items[0]
+                batch_managed = item_data.get('BatchNum', 'N') == 'Y'
+                serial_managed = item_data.get('SerialNum', 'N') == 'Y'
+                management_method = item_data.get('NonBatch_NonSerialMethod', 'N')
+                
+                # Determine inventory type
+                if serial_managed:
+                    inventory_type = 'serial'
+                elif batch_managed:
+                    inventory_type = 'batch'
+                elif management_method == 'R':
+                    inventory_type = 'quantity_based'
+                else:
+                    inventory_type = 'standard'
+                
+                logging.info(f"✅ Item {item_code} validated: Type={inventory_type}")
+                return {
+                    'success': True,
+                    'item_code': item_data.get('ItemCode'),
+                    'batch_managed': batch_managed,
+                    'serial_managed': serial_managed,
+                    'inventory_type': inventory_type,
+                    'management_method': management_method,
+                    'item_data': item_data
+                }
+            elif response.status_code == 401:
+                self.session_id = None
+                if self.login():
+                    return self.validate_item_code(item_code)
+                return {'success': False, 'error': 'Authentication failed'}
+            else:
+                error_msg = response.text
+                logging.error(f"❌ Failed to validate item {item_code}: {error_msg}")
+                return {'success': False, 'error': error_msg}
+                
+        except Exception as e:
+            logging.error(f"❌ Error validating item {item_code}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_item_details(self, item_code):
+        """
+        Fetch item details from SAP B1
+        Returns item name, UoM, price, and other details
+        """
+        if not self.ensure_logged_in():
+            return {'success': False, 'error': 'SAP login failed'}
+        
+        try:
+            url = f"{self.base_url}/b1s/v1/Items('{item_code}')"
+            params = {
+                '$select': 'ItemCode,ItemName,InventoryUOM,PurchaseUnit,SalesUnit,QuantityOnStock'
+            }
+            
+            logging.info(f"📦 Fetching item details for: {item_code}")
+            response = self.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                item_data = response.json()
+                logging.info(f"✅ Item details fetched for {item_code}")
+                return {
+                    'success': True,
+                    'item': item_data
+                }
+            elif response.status_code == 404:
+                return {'success': False, 'error': f'Item {item_code} not found'}
+            elif response.status_code == 401:
+                self.session_id = None
+                if self.login():
+                    return self.get_item_details(item_code)
+                return {'success': False, 'error': 'Authentication failed'}
+            else:
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            logging.error(f"❌ Error fetching item details: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
     def get_mock_purchase_orders(self, card_code):
         """Generate mock purchase orders for testing without SAP connectivity"""
         return {
