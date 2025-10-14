@@ -25,21 +25,7 @@ class SAPMultiGRNService:
         self.session.verify = False  # For development, in production use proper SSL
         self.is_offline = False
         self.enable_mock_data = os.environ.get('ENABLE_MOCK_SAP_DATA', 'false').lower() == 'true'
-        # try:
-        #     self.base_url = current_app.config.get('SAP_B1_SERVER', '')
-        #     self.username = current_app.config.get('SAP_B1_USERNAME', '')
-        #     self.password = current_app.config.get('SAP_B1_PASSWORD', '')
-        #     self.company_db = current_app.config.get('SAP_B1_COMPANY_DB', '')
-        # except RuntimeError:
-        #     self.base_url = os.environ.get('SAP_B1_SERVER', '')
-        #     self.username = os.environ.get('SAP_B1_USERNAME', '')
-        #     self.password = os.environ.get('SAP_B1_PASSWORD', '')
-        #     self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
-        #
-        # self.session_id = None
-        # self.session = requests.Session()
-        # self.session.verify = False
-        # self.is_offline = False
+
         
 
     
@@ -218,19 +204,17 @@ class SAPMultiGRNService:
             if response.status_code == 200:
                 data = response.json()
                 pos = data.get('value', [])
-
                 open_pos = []
                 for po in pos:
                     open_lines = [
-                        line for line in po.get('DocumentLines', [])
-                        if line.get('LineStatus') == 'bost_Open' and line.get('OpenQuantity', 0) > 0
+                        line for line in po.get('DocumentLines')
+                        if line.get('LineStatus') == 'bost_Open' and line.get('Quantity', 0) > 0
                     ]
-                    
                     if open_lines:
                         po['OpenLines'] = open_lines
                         po['TotalOpenLines'] = len(open_lines)
                         open_pos.append(po)
-                
+
                 logging.info(f"✅ Fetched {len(open_pos)} open POs for CardName {card_name}")
                 return {'success': True, 'purchase_orders': open_pos}
             elif response.status_code == 401:
