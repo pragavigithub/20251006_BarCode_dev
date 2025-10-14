@@ -719,7 +719,7 @@ def dashboard():
         for batch in recent_multi_grns:
             recent_activities.append({
                 'type': 'Multi GRN Batch',
-                'description': f"Batch: {batch.batch_number}",
+                'description': f"Batch #{batch.id} - {batch.customer_name}",
                 'created_at': batch.created_at,
                 'status': batch.status
             })

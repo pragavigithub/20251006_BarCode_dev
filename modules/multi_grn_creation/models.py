@@ -10,6 +10,7 @@ class MultiGRNBatch(db.Model):
     __tablename__ = 'multi_grn_batches'
     
     id = db.Column(db.Integer, primary_key=True)
+    batch_number = db.Column(db.String(50), unique=True, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     customer_code = db.Column(db.String(50), nullable=False)
     customer_name = db.Column(db.String(200), nullable=False)
@@ -73,7 +74,10 @@ class MultiGRNLineSelection(db.Model):
     unit_price = db.Column(db.Numeric(15, 4))
     line_status = db.Column(db.String(20))
     inventory_type = db.Column(db.String(20))
+    serial_numbers = db.Column(db.Text)
+    batch_numbers = db.Column(db.Text)
     posting_payload = db.Column(db.Text)
+    barcode_generated = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     def __repr__(self):
