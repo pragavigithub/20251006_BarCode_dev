@@ -100,6 +100,39 @@ Add new migrations below in reverse chronological order (newest first).
 
 ---
 
+### 2025-10-15 - GRPO Automatic Barcode Generation Enhancement
+- **File**: `mysql/changes/2025-10-15_grpo_barcode_enhancements.sql`
+- **Description**: Enhanced GRPO module with automatic barcode generation for serial and batch managed items
+- **Tables Affected**: grpo_serial_numbers, grpo_batch_numbers (existing tables)
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - **Application Logic Enhancements**:
+    - Auto-detect item type (Serial/Batch/Non-Batch) via SAP B1 API endpoint `SQLQueries('ItemCode_Batch_Serial_Val')/List`
+    - Automatically generate QR code barcodes when serial/batch items are added to GRPO
+    - Store barcodes as base64 encoded PNG images in database
+    - Display barcodes in GRPO detail view for scanning/printing
+  - **Barcode Formats**:
+    - Serial Items: `SN:{internal_serial_number}`
+    - Batch Items: `BATCH:{batch_number}`
+  - **JavaScript Enhancements**:
+    - Real-time item type validation on item code entry
+    - Dynamic show/hide of serial/batch input fields
+    - Automatic serial number input generation based on quantity
+  - **SAP B1 Integration**:
+    - JSON consolidation for Purchase Delivery Note creation
+    - Proper SerialNumbers and BatchNumbers array formatting
+    - Support for ManufacturerSerialNumber, InternalSerialNumber, ExpiryDate, ManufactureDate
+- **Routes Updated**: 
+  - `/grpo/<grpo_id>/add_item` - Enhanced with barcode generation
+  - `/grpo/validate-item/<item_code>` - Item type validation via SAP
+- **Notes**: 
+  - No schema changes required - barcode fields already existed
+  - Enhancement focuses on automatic generation and proper SAP integration
+  - Barcodes generated using QRCode library with error correction level L
+
+---
+
 ### 2025-10-14 - MultiGRN Serial/Batch Number Support and Barcode Generation
 - **File**: `mysql/changes/2025-10-14_multi_grn_enhancements.sql`
 - **Description**: Added serial/batch number support and barcode generation to MultiGRN module
