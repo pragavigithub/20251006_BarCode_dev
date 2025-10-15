@@ -281,6 +281,15 @@ def add_grpo_item(grpo_id):
         
         logging.info(f"🔍 Item {item_code} validation: Batch={is_batch_managed}, Serial={is_serial_managed}")
         
+        # **VALIDATION: Enforce serial/batch data for managed items**
+        if is_serial_managed and not serial_numbers_json:
+            flash(f'Item {item_code} is serial managed - serial numbers are required', 'error')
+            return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+        
+        if is_batch_managed and not batch_numbers_json:
+            flash(f'Item {item_code} is batch managed - batch numbers are required', 'error')
+            return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+        
         # Parse expiry date if provided
         expiry_date_obj = None
         if expiry_date:
