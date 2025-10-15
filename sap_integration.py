@@ -70,6 +70,81 @@ class SAPIntegration:
             return self.login()
         return True
 
+    def validate_item_code(self, item_code):
+        """Validate ItemCode and get BatchNum, SerialNum, and NonBatch_NonSerialMethod from SAP B1"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning default validation for ItemCode")
+            return {
+                'success': False,
+                'error': 'SAP B1 connection unavailable',
+                'item_code': item_code,
+                'batch_required': False,
+                'serial_required': False,
+                'manage_method': 'N'
+            }
+        
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('ItemCode_Batch_Serial_Val')/List"
+            payload = {
+                "ParamList": f"itemCode='{item_code}'"
+            }
+            
+            logging.info(f"🔍 Validating ItemCode: {item_code} via SAP SQL Query")
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                values = data.get('value', [])
+                
+                if values:
+                    result = values[0]
+                    batch_num = result.get('BatchNum', 'N')
+                    serial_num = result.get('SerialNum', 'N')
+                    manage_method = result.get('NonBatch_NonSerialMethod', 'N')
+                    
+                    logging.info(f"✅ Item {item_code}: BatchNum={batch_num}, SerialNum={serial_num}, ManageMethod={manage_method}")
+                    
+                    return {
+                        'success': True,
+                        'item_code': item_code,
+                        'batch_required': batch_num == 'Y',
+                        'serial_required': serial_num == 'Y',
+                        'manage_method': manage_method,
+                        'batch_num': batch_num,
+                        'serial_num': serial_num
+                    }
+                else:
+                    logging.warning(f"No validation data found for ItemCode: {item_code}")
+                    return {
+                        'success': False,
+                        'error': f'Item {item_code} not found in SAP',
+                        'item_code': item_code,
+                        'batch_required': False,
+                        'serial_required': False,
+                        'manage_method': 'N'
+                    }
+            else:
+                logging.error(f"SAP B1 validation failed: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f'SAP B1 error: {response.status_code}',
+                    'item_code': item_code,
+                    'batch_required': False,
+                    'serial_required': False,
+                    'manage_method': 'N'
+                }
+                
+        except Exception as e:
+            logging.error(f"Error validating ItemCode {item_code}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'item_code': item_code,
+                'batch_required': False,
+                'serial_required': False,
+                'manage_method': 'N'
+            }
+
     def get_inventory_transfer_request(self, doc_num):
         """Get specific inventory transfer request from SAP B1"""
         if not self.ensure_logged_in():

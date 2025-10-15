@@ -54,6 +54,12 @@ class GRPOItem(db.Model):
     po_line_number = db.Column(db.Integer)
     base_entry = db.Column(db.Integer)  # SAP PO DocEntry
     base_line = db.Column(db.Integer)   # SAP PO Line Number
+    
+    # Item validation metadata from SAP
+    batch_required = db.Column(db.String(1), default='N')  # Y or N
+    serial_required = db.Column(db.String(1), default='N')  # Y or N
+    manage_method = db.Column(db.String(1), default='N')  # A (Average), R (FIFO/Release), N (None)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

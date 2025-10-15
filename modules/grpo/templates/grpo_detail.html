@@ -271,7 +271,7 @@
                     </div>
                     
                     <!-- Batch Number -->
-                    <div class="mb-3">
+                    <div class="mb-3" id="batch_number_section">
                         <label for="batch_number" class="form-label">Batch Number</label>
                         <div class="d-flex">
                             <select class="form-select me-2" id="batch_dropdown" name="batch_number" disabled>
@@ -282,6 +282,12 @@
                             </button>
                         </div>
                         <input type="text" class="form-control mt-2" id="batch_manual" name="batch_manual" placeholder="Enter batch number manually" style="display: none;">
+                    </div>
+                    
+                    <!-- Serial Number -->
+                    <div class="mb-3" id="serial_number_section">
+                        <label for="serial_number" class="form-label">Serial Number</label>
+                        <input type="text" class="form-control" id="serial_number" name="serial_number" placeholder="Enter serial number" disabled>
                     </div>
                     
                     <!-- Expiration Date -->
@@ -368,11 +374,94 @@ function removeItem(itemId) {
 function onItemCodeChange() {
     const itemCode = document.getElementById('item_code').value;
     if (itemCode.trim()) {
+        // Validate item code and determine field requirements
+        validateItemCode(itemCode);
         loadWarehouses();
         loadBatches(itemCode);
     } else {
         resetDropdowns();
+        disableAllItemFields();
     }
+}
+
+// Validate ItemCode via SAP API
+function validateItemCode(itemCode) {
+    console.log('Validating ItemCode:', itemCode);
+    
+    fetch(`/grpo/validate-item/${encodeURIComponent(itemCode)}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Validation result:', data);
+            
+            if (data.success) {
+                // Enable/disable Batch Number based on batch_required
+                const batchSection = document.getElementById('batch_number_section');
+                const batchDropdown = document.getElementById('batch_dropdown');
+                const batchManual = document.getElementById('batch_manual');
+                
+                if (data.batch_required) {
+                    batchSection.style.display = 'block';
+                    batchDropdown.disabled = false;
+                    console.log('✅ Batch Number field enabled');
+                } else {
+                    batchSection.style.display = 'none';
+                    batchDropdown.disabled = true;
+                    batchManual.disabled = true;
+                    console.log('❌ Batch Number field disabled');
+                }
+                
+                // Enable/disable Serial Number based on serial_required
+                const serialSection = document.getElementById('serial_number_section');
+                const serialInput = document.getElementById('serial_number');
+                
+                if (data.serial_required) {
+                    serialSection.style.display = 'block';
+                    serialInput.disabled = false;
+                    console.log('✅ Serial Number field enabled');
+                } else {
+                    serialSection.style.display = 'none';
+                    serialInput.disabled = true;
+                    console.log('❌ Serial Number field disabled');
+                }
+                
+                // Handle manage_method (A or R)
+                const quantity = document.getElementById('quantity');
+                if (data.manage_method === 'R') {
+                    console.log('📦 Item uses FIFO/Release method (R) - quantity based');
+                    quantity.setAttribute('data-manage-method', 'R');
+                } else if (data.manage_method === 'A') {
+                    console.log('📦 Item uses Average method (A)');
+                    quantity.setAttribute('data-manage-method', 'A');
+                } else {
+                    quantity.setAttribute('data-manage-method', 'N');
+                }
+                
+            } else {
+                console.warn('Validation failed:', data.error);
+                // On validation failure, disable all optional fields
+                disableAllItemFields();
+            }
+        })
+        .catch(error => {
+            console.error('Error validating ItemCode:', error);
+            disableAllItemFields();
+        });
+}
+
+function disableAllItemFields() {
+    // Hide and disable batch number section
+    const batchSection = document.getElementById('batch_number_section');
+    const batchDropdown = document.getElementById('batch_dropdown');
+    const batchManual = document.getElementById('batch_manual');
+    batchSection.style.display = 'none';
+    batchDropdown.disabled = true;
+    batchManual.disabled = true;
+    
+    // Hide and disable serial number section
+    const serialSection = document.getElementById('serial_number_section');
+    const serialInput = document.getElementById('serial_number');
+    serialSection.style.display = 'none';
+    serialInput.disabled = true;
 }
 
 function onWarehouseChange() {

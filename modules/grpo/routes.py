@@ -330,3 +330,28 @@ def delete_grpo_item(item_id):
     except Exception as e:
         logging.error(f"Error deleting GRPO item: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/validate-item/<string:item_code>', methods=['GET'])
+@login_required
+def validate_item_code(item_code):
+    """Validate ItemCode and return batch/serial requirements"""
+    try:
+        from sap_integration import SAPIntegration
+        
+        sap = SAPIntegration()
+        validation_result = sap.validate_item_code(item_code)
+        
+        logging.info(f"🔍 ItemCode validation for {item_code}: {validation_result}")
+        
+        return jsonify(validation_result)
+        
+    except Exception as e:
+        logging.error(f"Error validating ItemCode {item_code}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'item_code': item_code,
+            'batch_required': False,
+            'serial_required': False,
+            'manage_method': 'N'
+        }), 500
