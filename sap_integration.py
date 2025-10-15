@@ -2459,16 +2459,24 @@ class SAPIntegration:
                 for serial in item.serial_numbers:
                     serial_entry = {
                         "Quantity": float(serial.quantity),
-                        "BaseLineNumber": serial.base_line_number
+                        "BaseLineNumber": line_number  # Use current document line index
                     }
                     if serial.manufacturer_serial_number:
                         serial_entry["ManufacturerSerialNumber"] = serial.manufacturer_serial_number
                     if serial.internal_serial_number:
                         serial_entry["InternalSerialNumber"] = serial.internal_serial_number
                     if serial.expiry_date:
-                        serial_entry["ExpiryDate"] = serial.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(serial.expiry_date, 'strftime') else str(serial.expiry_date) + "T00:00:00Z"
+                        # Convert to string format for JSON serialization
+                        expiry_str = serial.expiry_date.strftime('%Y-%m-%d') if hasattr(serial.expiry_date, 'strftime') else str(serial.expiry_date)
+                        if 'T' not in expiry_str:
+                            expiry_str += "T00:00:00Z"
+                        serial_entry["ExpiryDate"] = expiry_str
                     if serial.manufacture_date:
-                        serial_entry["ManufactureDate"] = serial.manufacture_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(serial.manufacture_date, 'strftime') else str(serial.manufacture_date) + "T00:00:00Z"
+                        # Convert to string format for JSON serialization
+                        mfg_str = serial.manufacture_date.strftime('%Y-%m-%d') if hasattr(serial.manufacture_date, 'strftime') else str(serial.manufacture_date)
+                        if 'T' not in mfg_str:
+                            mfg_str += "T00:00:00Z"
+                        serial_entry["ManufactureDate"] = mfg_str
                     if serial.notes:
                         serial_entry["Notes"] = serial.notes
                     
@@ -2483,14 +2491,18 @@ class SAPIntegration:
                     batch_entry = {
                         "BatchNumber": batch.batch_number,
                         "Quantity": float(batch.quantity),
-                        "BaseLineNumber": batch.base_line_number
+                        "BaseLineNumber": line_number  # Use current document line index
                     }
                     if batch.manufacturer_serial_number:
                         batch_entry["ManufacturerSerialNumber"] = batch.manufacturer_serial_number
                     if batch.internal_serial_number:
                         batch_entry["InternalSerialNumber"] = batch.internal_serial_number
                     if batch.expiry_date:
-                        batch_entry["ExpiryDate"] = batch.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(batch.expiry_date, 'strftime') else str(batch.expiry_date) + "T00:00:00Z"
+                        # Convert to string format for JSON serialization
+                        expiry_str = batch.expiry_date.strftime('%Y-%m-%d') if hasattr(batch.expiry_date, 'strftime') else str(batch.expiry_date)
+                        if 'T' not in expiry_str:
+                            expiry_str += "T00:00:00Z"
+                        batch_entry["ExpiryDate"] = expiry_str
                     
                     batch_numbers_array.append(batch_entry)
                 
