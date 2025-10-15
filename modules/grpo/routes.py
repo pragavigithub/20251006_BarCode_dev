@@ -319,8 +319,12 @@ def add_grpo_item(grpo_id):
                     db.session.rollback()
                     return redirect(url_for('grpo.detail', grpo_id=grpo_id))
                 
-                # Create serial number records
+                # Create serial number records with automatic barcode generation
                 for idx, serial_data in enumerate(serial_numbers):
+                    # Generate barcode for serial number
+                    serial_barcode_data = f"SN:{serial_data.get('internal_serial_number')}"
+                    serial_barcode = generate_barcode(serial_barcode_data)
+                    
                     serial = GRPOSerialNumber(
                         grpo_item_id=grpo_item.id,
                         manufacturer_serial_number=serial_data.get('manufacturer_serial_number', ''),
@@ -328,10 +332,12 @@ def add_grpo_item(grpo_id):
                         expiry_date=datetime.strptime(serial_data['expiry_date'], '%Y-%m-%d').date() if serial_data.get('expiry_date') else None,
                         manufacture_date=datetime.strptime(serial_data['manufacture_date'], '%Y-%m-%d').date() if serial_data.get('manufacture_date') else None,
                         notes=serial_data.get('notes', ''),
+                        barcode=serial_barcode,
                         quantity=1.0,
                         base_line_number=idx
                     )
                     db.session.add(serial)
+                    logging.info(f"✅ Generated barcode for serial: {serial_data.get('internal_serial_number')}")
                 
                 logging.info(f"✅ Added {len(serial_numbers)} serial numbers for item {item_code}")
                 
@@ -356,8 +362,12 @@ def add_grpo_item(grpo_id):
                     db.session.rollback()
                     return redirect(url_for('grpo.detail', grpo_id=grpo_id))
                 
-                # Create batch number records
+                # Create batch number records with automatic barcode generation
                 for idx, batch_data in enumerate(batch_numbers):
+                    # Generate barcode for batch number
+                    batch_barcode_data = f"BATCH:{batch_data.get('batch_number')}"
+                    batch_barcode = generate_barcode(batch_barcode_data)
+                    
                     batch = GRPOBatchNumber(
                         grpo_item_id=grpo_item.id,
                         batch_number=batch_data.get('batch_number'),
@@ -365,9 +375,11 @@ def add_grpo_item(grpo_id):
                         manufacturer_serial_number=batch_data.get('manufacturer_serial_number', ''),
                         internal_serial_number=batch_data.get('internal_serial_number', ''),
                         expiry_date=datetime.strptime(batch_data['expiry_date'], '%Y-%m-%d').date() if batch_data.get('expiry_date') else None,
+                        barcode=batch_barcode,
                         base_line_number=idx
                     )
                     db.session.add(batch)
+                    logging.info(f"✅ Generated barcode for batch: {batch_data.get('batch_number')}")
                 
                 logging.info(f"✅ Added {len(batch_numbers)} batch numbers for item {item_code}")
                 
