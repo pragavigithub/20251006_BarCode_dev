@@ -1,4 +1,4 @@
-modules = ["web", "python-3.11", "nodejs-20", "bash"]
+modules = ["web", "python-3.11", "nodejs-20", "bash", "python3"]
 [agent]
 expertMode = true
 
@@ -53,6 +53,10 @@ externalPort = 4200
 [[ports]]
 localPort = 41019
 externalPort = 3000
+
+[[ports]]
+localPort = 41283
+externalPort = 8008
 
 [[ports]]
 localPort = 41331
