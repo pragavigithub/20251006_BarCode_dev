@@ -2456,32 +2456,33 @@ class SAPIntegration:
             # Add SerialNumbers array if item has serial numbers
             if hasattr(item, 'serial_numbers') and item.serial_numbers:
                 serial_numbers_array = []
+                total_serial_quantity = 0.0
+                
                 for serial in item.serial_numbers:
                     serial_entry = {
-                        "Quantity": float(serial.quantity),
-                        "BaseLineNumber": line_number  # Use current document line index
+                        "Quantity": 1.0,  # Each serial is always quantity 1
+                        "BaseLineNumber": po_line_num  # Use PO BaseLine, not document line counter
                     }
                     if serial.manufacturer_serial_number:
                         serial_entry["ManufacturerSerialNumber"] = serial.manufacturer_serial_number
                     if serial.internal_serial_number:
                         serial_entry["InternalSerialNumber"] = serial.internal_serial_number
                     if serial.expiry_date:
-                        # Convert to string format for JSON serialization
-                        expiry_str = serial.expiry_date.strftime('%Y-%m-%d') if hasattr(serial.expiry_date, 'strftime') else str(serial.expiry_date)
-                        if 'T' not in expiry_str:
-                            expiry_str += "T00:00:00Z"
+                        # Convert to string format (YYYY-MM-DD only, no time)
+                        expiry_str = serial.expiry_date.strftime('%Y-%m-%d') if hasattr(serial.expiry_date, 'strftime') else str(serial.expiry_date).split('T')[0]
                         serial_entry["ExpiryDate"] = expiry_str
                     if serial.manufacture_date:
-                        # Convert to string format for JSON serialization
-                        mfg_str = serial.manufacture_date.strftime('%Y-%m-%d') if hasattr(serial.manufacture_date, 'strftime') else str(serial.manufacture_date)
-                        if 'T' not in mfg_str:
-                            mfg_str += "T00:00:00Z"
+                        # Convert to string format (YYYY-MM-DD only, no time)
+                        mfg_str = serial.manufacture_date.strftime('%Y-%m-%d') if hasattr(serial.manufacture_date, 'strftime') else str(serial.manufacture_date).split('T')[0]
                         serial_entry["ManufactureDate"] = mfg_str
                     if serial.notes:
                         serial_entry["Notes"] = serial.notes
                     
                     serial_numbers_array.append(serial_entry)
+                    total_serial_quantity += 1.0
                 
+                # Update line quantity to sum of all serials
+                line["Quantity"] = total_serial_quantity
                 line["SerialNumbers"] = serial_numbers_array
             
             # Add BatchNumbers array if item has batch numbers
