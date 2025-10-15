@@ -5,10 +5,13 @@ All routes related to goods receipt against purchase orders
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from app import db
-from modules.grpo.models import GRPODocument, GRPOItem
+from modules.grpo.models import GRPODocument, GRPOItem, GRPOSerialNumber, GRPOBatchNumber
 from modules.shared.models import User
 import logging
 from datetime import datetime
+import qrcode
+import io
+import base64
 
 grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo')
 
@@ -355,3 +358,250 @@ def validate_item_code(item_code):
             'serial_required': False,
             'manage_method': 'N'
         }), 500
+
+def generate_barcode(data):
+    """Generate QR code barcode and return base64 encoded image"""
+    try:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        return f"data:image/png;base64,{img_base64}"
+    except Exception as e:
+        logging.error(f"Error generating barcode: {str(e)}")
+        return None
+
+@grpo_bp.route('/items/<int:item_id>/serial-numbers', methods=['GET', 'POST'])
+@login_required
+def manage_serial_numbers(item_id):
+    """Get or add serial numbers for a GRPO item"""
+    item = GRPOItem.query.get_or_404(item_id)
+    
+    # Check permissions
+    if item.grpo_document.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    if request.method == 'GET':
+        # Return existing serial numbers
+        serials = [{
+            'id': sn.id,
+            'manufacturer_serial_number': sn.manufacturer_serial_number,
+            'internal_serial_number': sn.internal_serial_number,
+            'expiry_date': sn.expiry_date.isoformat() if sn.expiry_date else None,
+            'manufacture_date': sn.manufacture_date.isoformat() if sn.manufacture_date else None,
+            'notes': sn.notes,
+            'barcode': sn.barcode,
+            'quantity': float(sn.quantity),
+            'base_line_number': sn.base_line_number
+        } for sn in item.serial_numbers]
+        
+        return jsonify({'success': True, 'serial_numbers': serials})
+    
+    elif request.method == 'POST':
+        # Add new serial number
+        try:
+            data = request.json
+            
+            # Check if internal serial number already exists
+            existing = GRPOSerialNumber.query.filter_by(
+                internal_serial_number=data['internal_serial_number']
+            ).first()
+            
+            if existing:
+                return jsonify({
+                    'success': False,
+                    'error': f"Serial number '{data['internal_serial_number']}' already exists"
+                }), 400
+            
+            # Generate barcode
+            barcode_data = f"SN:{data['internal_serial_number']}"
+            barcode = generate_barcode(barcode_data)
+            
+            # Create serial number entry
+            serial = GRPOSerialNumber(
+                grpo_item_id=item_id,
+                manufacturer_serial_number=data.get('manufacturer_serial_number'),
+                internal_serial_number=data['internal_serial_number'],
+                expiry_date=datetime.strptime(data['expiry_date'], '%Y-%m-%d').date() if data.get('expiry_date') else None,
+                manufacture_date=datetime.strptime(data['manufacture_date'], '%Y-%m-%d').date() if data.get('manufacture_date') else None,
+                notes=data.get('notes'),
+                barcode=barcode,
+                quantity=data.get('quantity', 1.0),
+                base_line_number=data.get('base_line_number', 0)
+            )
+            
+            db.session.add(serial)
+            db.session.commit()
+            
+            logging.info(f"✅ Serial number {data['internal_serial_number']} added to item {item_id}")
+            
+            return jsonify({
+                'success': True,
+                'serial_number': {
+                    'id': serial.id,
+                    'manufacturer_serial_number': serial.manufacturer_serial_number,
+                    'internal_serial_number': serial.internal_serial_number,
+                    'expiry_date': serial.expiry_date.isoformat() if serial.expiry_date else None,
+                    'manufacture_date': serial.manufacture_date.isoformat() if serial.manufacture_date else None,
+                    'notes': serial.notes,
+                    'barcode': serial.barcode,
+                    'quantity': float(serial.quantity),
+                    'base_line_number': serial.base_line_number
+                }
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error adding serial number: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/serial-numbers/<int:serial_id>', methods=['DELETE'])
+@login_required
+def delete_serial_number(serial_id):
+    """Delete a serial number"""
+    try:
+        serial = GRPOSerialNumber.query.get_or_404(serial_id)
+        
+        # Check permissions
+        if serial.grpo_item.grpo_document.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        db.session.delete(serial)
+        db.session.commit()
+        
+        logging.info(f"🗑️ Serial number {serial.internal_serial_number} deleted")
+        return jsonify({'success': True, 'message': 'Serial number deleted'})
+        
+    except Exception as e:
+        logging.error(f"Error deleting serial number: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/items/<int:item_id>/batch-numbers', methods=['GET', 'POST'])
+@login_required
+def manage_batch_numbers(item_id):
+    """Get or add batch numbers for a GRPO item"""
+    item = GRPOItem.query.get_or_404(item_id)
+    
+    # Check permissions
+    if item.grpo_document.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    if request.method == 'GET':
+        # Return existing batch numbers
+        batches = [{
+            'id': bn.id,
+            'batch_number': bn.batch_number,
+            'quantity': float(bn.quantity),
+            'base_line_number': bn.base_line_number,
+            'manufacturer_serial_number': bn.manufacturer_serial_number,
+            'internal_serial_number': bn.internal_serial_number,
+            'expiry_date': bn.expiry_date.isoformat() if bn.expiry_date else None,
+            'barcode': bn.barcode
+        } for bn in item.batch_numbers]
+        
+        return jsonify({'success': True, 'batch_numbers': batches})
+    
+    elif request.method == 'POST':
+        # Add new batch number
+        try:
+            data = request.json
+            
+            # Generate barcode
+            barcode_data = f"BATCH:{data['batch_number']}"
+            barcode = generate_barcode(barcode_data)
+            
+            # Create batch number entry
+            batch = GRPOBatchNumber(
+                grpo_item_id=item_id,
+                batch_number=data['batch_number'],
+                quantity=data['quantity'],
+                base_line_number=data.get('base_line_number', 0),
+                manufacturer_serial_number=data.get('manufacturer_serial_number'),
+                internal_serial_number=data.get('internal_serial_number'),
+                expiry_date=datetime.strptime(data['expiry_date'], '%Y-%m-%d').date() if data.get('expiry_date') else None,
+                barcode=barcode
+            )
+            
+            db.session.add(batch)
+            db.session.commit()
+            
+            logging.info(f"✅ Batch number {data['batch_number']} added to item {item_id}")
+            
+            return jsonify({
+                'success': True,
+                'batch_number': {
+                    'id': batch.id,
+                    'batch_number': batch.batch_number,
+                    'quantity': float(batch.quantity),
+                    'base_line_number': batch.base_line_number,
+                    'manufacturer_serial_number': batch.manufacturer_serial_number,
+                    'internal_serial_number': batch.internal_serial_number,
+                    'expiry_date': batch.expiry_date.isoformat() if batch.expiry_date else None,
+                    'barcode': batch.barcode
+                }
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error adding batch number: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/batch-numbers/<int:batch_id>', methods=['DELETE'])
+@login_required
+def delete_batch_number(batch_id):
+    """Delete a batch number"""
+    try:
+        batch = GRPOBatchNumber.query.get_or_404(batch_id)
+        
+        # Check permissions
+        if batch.grpo_item.grpo_document.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        db.session.delete(batch)
+        db.session.commit()
+        
+        logging.info(f"🗑️ Batch number {batch.batch_number} deleted")
+        return jsonify({'success': True, 'message': 'Batch number deleted'})
+        
+    except Exception as e:
+        logging.error(f"Error deleting batch number: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/validate-serial/<string:serial_number>', methods=['GET'])
+@login_required
+def validate_serial_unique(serial_number):
+    """Check if serial number is unique"""
+    try:
+        existing = GRPOSerialNumber.query.filter_by(
+            internal_serial_number=serial_number
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'success': False,
+                'unique': False,
+                'message': f"Serial number '{serial_number}' already exists"
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'unique': True,
+                'message': f"Serial number '{serial_number}' is available"
+            })
+            
+    except Exception as e:
+        logging.error(f"Error validating serial number: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
