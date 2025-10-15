@@ -310,6 +310,144 @@
         </div>
     </div>
 </div>
+
+<!-- Serial/Batch Number Management Modal -->
+<div class="modal fade" id="serialBatchModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="serialBatchModalTitle">Manage Serial/Batch Numbers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Item Info -->
+                <div class="alert alert-info" id="serialBatchItemInfo">
+                    <strong>Item:</strong> <span id="sbItemCode"></span> - <span id="sbItemName"></span><br>
+                    <strong>Quantity:</strong> <span id="sbQuantity"></span>
+                </div>
+                
+                <!-- Serial Numbers Section -->
+                <div id="serialNumbersSection" style="display: none;">
+                    <h6>Serial Numbers</h6>
+                    
+                    <!-- Add Serial Number Form -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">Add New Serial Number</h6>
+                            <form id="addSerialForm">
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Internal Serial Number *</label>
+                                        <input type="text" class="form-control" id="internal_serial" name="internal_serial" required>
+                                        <div class="invalid-feedback" id="serialValidationMessage"></div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Manufacturer Serial Number</label>
+                                        <input type="text" class="form-control" id="manufacturer_serial" name="manufacturer_serial">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Manufacture Date</label>
+                                        <input type="date" class="form-control" id="manufacture_date" name="manufacture_date">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Expiry Date</label>
+                                        <input type="date" class="form-control" id="expiry_date" name="expiry_date">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Notes</label>
+                                    <textarea class="form-control" id="serial_notes" name="notes" rows="2"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i data-feather="plus"></i> Add Serial Number
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Serial Numbers List -->
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Internal S/N</th>
+                                    <th>Manufacturer S/N</th>
+                                    <th>Mfg Date</th>
+                                    <th>Exp Date</th>
+                                    <th>Barcode</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serialNumbersList"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Batch Numbers Section -->
+                <div id="batchNumbersSection" style="display: none;">
+                    <h6>Batch Numbers</h6>
+                    
+                    <!-- Add Batch Number Form -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">Add New Batch Number</h6>
+                            <form id="addBatchForm">
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Batch Number *</label>
+                                        <input type="text" class="form-control" id="batch_number" name="batch_number" required>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Quantity *</label>
+                                        <input type="number" step="0.001" class="form-control" id="batch_quantity" name="quantity" required>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Expiry Date</label>
+                                        <input type="date" class="form-control" id="batch_expiry_date" name="expiry_date">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Manufacturer Serial</label>
+                                        <input type="text" class="form-control" id="batch_mfg_serial" name="manufacturer_serial_number">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label">Internal Serial</label>
+                                        <input type="text" class="form-control" id="batch_int_serial" name="internal_serial_number">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i data-feather="plus"></i> Add Batch Number
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Batch Numbers List -->
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Batch Number</th>
+                                    <th>Quantity</th>
+                                    <th>Expiry Date</th>
+                                    <th>Barcode</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batchNumbersList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -640,6 +778,232 @@ function resetBinDropdown() {
     const binDropdown = document.getElementById('bin_dropdown');
     binDropdown.disabled = true;
     binDropdown.innerHTML = '<option value="">Select Bin Location...</option>';
+}
+
+// Serial/Batch Number Management
+let currentItemId = null;
+let currentItemData = {};
+
+function openSerialBatchModal(itemId, itemCode, itemName, quantity, batchRequired, serialRequired) {
+    currentItemId = itemId;
+    currentItemData = {itemId, itemCode, itemName, quantity, batchRequired, serialRequired};
+    
+    // Update modal title and info
+    document.getElementById('sbItemCode').textContent = itemCode;
+    document.getElementById('sbItemName').textContent = itemName;
+    document.getElementById('sbQuantity').textContent = quantity;
+    
+    // Show appropriate section
+    if (serialRequired) {
+        document.getElementById('serialNumbersSection').style.display = 'block';
+        document.getElementById('batchNumbersSection').style.display = 'none';
+        document.getElementById('serialBatchModalTitle').textContent = 'Manage Serial Numbers';
+        loadSerialNumbers(itemId);
+    } else if (batchRequired) {
+        document.getElementById('serialNumbersSection').style.display = 'none';
+        document.getElementById('batchNumbersSection').style.display = 'block';
+        document.getElementById('serialBatchModalTitle').textContent = 'Manage Batch Numbers';
+        loadBatchNumbers(itemId);
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('serialBatchModal'));
+    modal.show();
+}
+
+function loadSerialNumbers(itemId) {
+    fetch(`/grpo/items/${itemId}/serial-numbers`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displaySerialNumbers(data.serial_numbers);
+            }
+        })
+        .catch(error => console.error('Error loading serial numbers:', error));
+}
+
+function loadBatchNumbers(itemId) {
+    fetch(`/grpo/items/${itemId}/batch-numbers`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayBatchNumbers(data.batch_numbers);
+            }
+        })
+        .catch(error => console.error('Error loading batch numbers:', error));
+}
+
+function displaySerialNumbers(serials) {
+    const tbody = document.getElementById('serialNumbersList');
+    tbody.innerHTML = '';
+    
+    serials.forEach(serial => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${serial.internal_serial_number}</td>
+            <td>${serial.manufacturer_serial_number || '-'}</td>
+            <td>${serial.manufacture_date || '-'}</td>
+            <td>${serial.expiry_date || '-'}</td>
+            <td>${serial.barcode ? `<img src="${serial.barcode}" alt="Barcode" style="max-width: 80px;">` : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deleteSerialNumber(${serial.id})">
+                    <i data-feather="trash-2"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Reinitialize feather icons
+    if (window.feather) feather.replace();
+}
+
+function displayBatchNumbers(batches) {
+    const tbody = document.getElementById('batchNumbersList');
+    tbody.innerHTML = '';
+    
+    batches.forEach(batch => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${batch.batch_number}</td>
+            <td>${batch.quantity}</td>
+            <td>${batch.expiry_date || '-'}</td>
+            <td>${batch.barcode ? `<img src="${batch.barcode}" alt="Barcode" style="max-width: 80px;">` : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deleteBatchNumber(${batch.id})">
+                    <i data-feather="trash-2"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Reinitialize feather icons
+    if (window.feather) feather.replace();
+}
+
+// Validate serial number uniqueness
+document.getElementById('internal_serial')?.addEventListener('blur', function() {
+    const serialNumber = this.value.trim();
+    if (!serialNumber) return;
+    
+    fetch(`/grpo/validate-serial/${encodeURIComponent(serialNumber)}`)
+        .then(response => response.json())
+        .then(data => {
+            const input = document.getElementById('internal_serial');
+            const message = document.getElementById('serialValidationMessage');
+            
+            if (data.unique) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                message.textContent = '';
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                message.textContent = data.message;
+            }
+        })
+        .catch(error => console.error('Error validating serial:', error));
+});
+
+// Add Serial Number Form Handler
+document.getElementById('addSerialForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        internal_serial_number: document.getElementById('internal_serial').value,
+        manufacturer_serial_number: document.getElementById('manufacturer_serial').value,
+        manufacture_date: document.getElementById('manufacture_date').value,
+        expiry_date: document.getElementById('expiry_date').value,
+        notes: document.getElementById('serial_notes').value,
+        quantity: 1.0,
+        base_line_number: 0
+    };
+    
+    fetch(`/grpo/items/${currentItemId}/serial-numbers`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();
+            document.getElementById('internal_serial').classList.remove('is-valid', 'is-invalid');
+            loadSerialNumbers(currentItemId);
+            alert('Serial number added successfully!');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error adding serial:', error);
+        alert('Error adding serial number');
+    });
+});
+
+// Add Batch Number Form Handler
+document.getElementById('addBatchForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        batch_number: document.getElementById('batch_number').value,
+        quantity: parseFloat(document.getElementById('batch_quantity').value),
+        expiry_date: document.getElementById('batch_expiry_date').value,
+        manufacturer_serial_number: document.getElementById('batch_mfg_serial').value,
+        internal_serial_number: document.getElementById('batch_int_serial').value,
+        base_line_number: 0
+    };
+    
+    fetch(`/grpo/items/${currentItemId}/batch-numbers`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();
+            loadBatchNumbers(currentItemId);
+            alert('Batch number added successfully!');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error adding batch:', error);
+        alert('Error adding batch number');
+    });
+});
+
+function deleteSerialNumber(serialId) {
+    if (!confirm('Are you sure you want to delete this serial number?')) return;
+    
+    fetch(`/grpo/serial-numbers/${serialId}`, {method: 'DELETE'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadSerialNumbers(currentItemId);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => console.error('Error deleting serial:', error));
+}
+
+function deleteBatchNumber(batchId) {
+    if (!confirm('Are you sure you want to delete this batch number?')) return;
+    
+    fetch(`/grpo/batch-numbers/${batchId}`, {method: 'DELETE'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadBatchNumbers(currentItemId);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => console.error('Error deleting batch:', error));
 }
 
 // Initialize page
