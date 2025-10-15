@@ -827,24 +827,44 @@ class SAPIntegration:
                 "BinCode": item.bin_location
             }
 
-            # Add batch information if available
-            if item.batch_number:
-                line["BatchNumbers"] = [{
-                    "BatchNumber":
-                    item.batch_number,
-                    "Quantity":
-                    item.received_quantity,
-                    "ExpiryDate":
-                    item.expiration_date.strftime('%Y-%m-%d')
-                    if item.expiration_date else None
-                }]
+            # Add SerialNumbers array if item has serial number management
+            if hasattr(item, 'serial_numbers') and item.serial_numbers:
+                line["SerialNumbers"] = []
+                for serial in item.serial_numbers:
+                    serial_entry = {
+                        "Quantity": float(serial.quantity),
+                        "BaseLineNumber": serial.base_line_number
+                    }
+                    if serial.manufacturer_serial_number:
+                        serial_entry["ManufacturerSerialNumber"] = serial.manufacturer_serial_number
+                    if serial.internal_serial_number:
+                        serial_entry["InternalSerialNumber"] = serial.internal_serial_number
+                    if serial.expiry_date:
+                        serial_entry["ExpiryDate"] = serial.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    if serial.manufacture_date:
+                        serial_entry["ManufactureDate"] = serial.manufacture_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    if serial.notes:
+                        serial_entry["Notes"] = serial.notes
+                    
+                    line["SerialNumbers"].append(serial_entry)
 
-            # Add serial numbers if needed
-            if item.generated_barcode:
-                line["SerialNumbers"] = [{
-                    "SerialNumber": item.generated_barcode,
-                    "Quantity": 1
-                }]
+            # Add BatchNumbers array if item has batch number management
+            if hasattr(item, 'batch_numbers') and item.batch_numbers:
+                line["BatchNumbers"] = []
+                for batch in item.batch_numbers:
+                    batch_entry = {
+                        "BatchNumber": batch.batch_number,
+                        "Quantity": float(batch.quantity),
+                        "BaseLineNumber": batch.base_line_number
+                    }
+                    if batch.manufacturer_serial_number:
+                        batch_entry["ManufacturerSerialNumber"] = batch.manufacturer_serial_number
+                    if batch.internal_serial_number:
+                        batch_entry["InternalSerialNumber"] = batch.internal_serial_number
+                    if batch.expiry_date:
+                        batch_entry["ExpiryDate"] = batch.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    
+                    line["BatchNumbers"].append(batch_entry)
 
             document_lines.append(line)
 
