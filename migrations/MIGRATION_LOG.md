@@ -37,6 +37,48 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-15 - GRPO Serial and Batch Number Tables
+- **File**: `mysql_grpo_serial_batch_migration.py`
+- **Description**: Added dedicated tables for serial and batch number management with barcode support
+- **Tables Created**: 
+  - `grpo_serial_numbers` - Individual serial number tracking
+  - `grpo_batch_numbers` - Batch number tracking with quantities
+- **Status**: ⏳ Pending
+- **Changes**:
+  - **grpo_serial_numbers**:
+    - `id` INT AUTO_INCREMENT PRIMARY KEY
+    - `grpo_item_id` INT NOT NULL (FK to grpo_items)
+    - `manufacturer_serial_number` VARCHAR(100) - Manufacturer's serial number
+    - `internal_serial_number` VARCHAR(100) UNIQUE NOT NULL - Internal tracking serial (must be unique)
+    - `expiry_date` DATE - Expiration date
+    - `manufacture_date` DATE - Manufacturing date
+    - `notes` TEXT - Additional notes
+    - `barcode` VARCHAR(200) - Base64 encoded barcode image
+    - `quantity` DECIMAL(15,3) DEFAULT 1.0 - Quantity (typically 1 for serial items)
+    - `base_line_number` INT DEFAULT 0 - SAP base line reference
+    - `created_at` DATETIME
+  - **grpo_batch_numbers**:
+    - `id` INT AUTO_INCREMENT PRIMARY KEY
+    - `grpo_item_id` INT NOT NULL (FK to grpo_items)
+    - `batch_number` VARCHAR(100) NOT NULL - Batch identifier
+    - `quantity` DECIMAL(15,3) NOT NULL - Batch quantity
+    - `base_line_number` INT DEFAULT 0 - SAP base line reference
+    - `manufacturer_serial_number` VARCHAR(100) - Optional manufacturer serial
+    - `internal_serial_number` VARCHAR(100) - Optional internal serial
+    - `expiry_date` DATE - Batch expiration date
+    - `barcode` VARCHAR(200) - Base64 encoded barcode image
+    - `created_at` DATETIME
+- **SAP B1 Integration**:
+  - Supports SAP DocumentLines SerialNumbers array format
+  - Supports SAP DocumentLines BatchNumbers array format
+  - Each serial entry generates unique barcode for tracking
+- **Notes**: 
+  - Internal serial numbers must be unique across the system
+  - Supports quantity-based entry for serial items
+  - Barcode generation using QRCode library
+
+---
+
 ### 2025-10-15 - GRPO Item Validation Fields (Batch/Serial Requirements)
 - **File**: `mysql_grpo_item_validation_migration.py`
 - **Description**: Added ItemCode validation fields to GRPO items for batch and serial number management
