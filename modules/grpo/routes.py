@@ -12,6 +12,7 @@ from datetime import datetime
 import qrcode
 import io
 import base64
+import json
 
 grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo')
 
@@ -231,7 +232,7 @@ def reject(grpo_id):
 @grpo_bp.route('/<int:grpo_id>/add_item', methods=['POST'])
 @login_required
 def add_grpo_item(grpo_id):
-    """Add item to GRPO with duplicate prevention"""
+    """Add item to GRPO with SAP validation and batch/serial number support"""
     try:
         grpo = GRPODocument.query.get_or_404(grpo_id)
         
@@ -253,13 +254,14 @@ def add_grpo_item(grpo_id):
         bin_location = request.form.get('bin_location')
         batch_number = request.form.get('batch_number')
         expiry_date = request.form.get('expiry_date')
+        serial_numbers_json = request.form.get('serial_numbers_json', '')
+        batch_numbers_json = request.form.get('batch_numbers_json', '')
         
         if not all([item_code, item_name, quantity > 0]):
             flash('Item Code, Item Name, and Quantity are required', 'error')
             return redirect(url_for('grpo.detail', grpo_id=grpo_id))
         
         # **DUPLICATE PREVENTION LOGIC**
-        # Check if this item_code already exists in this GRPO
         existing_item = GRPOItem.query.filter_by(
             grpo_id=grpo_id,
             item_code=item_code
@@ -269,11 +271,20 @@ def add_grpo_item(grpo_id):
             flash(f'Item {item_code} has already been added to this GRPO. Each item can only be received once per GRPO to avoid duplication.', 'error')
             return redirect(url_for('grpo.detail', grpo_id=grpo_id))
         
+        # **SAP VALIDATION - Determine item management type**
+        from sap_integration import SAPIntegration
+        sap = SAPIntegration()
+        validation_result = sap.validate_item_code(item_code)
+        
+        is_batch_managed = validation_result.get('batch_required', False)
+        is_serial_managed = validation_result.get('serial_required', False)
+        
+        logging.info(f"🔍 Item {item_code} validation: Batch={is_batch_managed}, Serial={is_serial_managed}")
+        
         # Parse expiry date if provided
         expiry_date_obj = None
         if expiry_date:
             try:
-                from datetime import datetime
                 expiry_date_obj = datetime.strptime(expiry_date, '%Y-%m-%d').date()
             except ValueError:
                 flash('Invalid expiry date format. Use YYYY-MM-DD', 'error')
@@ -295,14 +306,89 @@ def add_grpo_item(grpo_id):
         )
         
         db.session.add(grpo_item)
+        db.session.flush()
+        
+        # **SERIAL NUMBER HANDLING**
+        if is_serial_managed and serial_numbers_json:
+            try:
+                serial_numbers = json.loads(serial_numbers_json)
+                
+                # Validate quantity matches serial entries
+                if len(serial_numbers) != int(quantity):
+                    flash(f'Serial managed item requires {int(quantity)} serial numbers, but {len(serial_numbers)} provided', 'error')
+                    db.session.rollback()
+                    return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+                
+                # Create serial number records
+                for idx, serial_data in enumerate(serial_numbers):
+                    serial = GRPOSerialNumber(
+                        grpo_item_id=grpo_item.id,
+                        manufacturer_serial_number=serial_data.get('manufacturer_serial_number', ''),
+                        internal_serial_number=serial_data.get('internal_serial_number'),
+                        expiry_date=datetime.strptime(serial_data['expiry_date'], '%Y-%m-%d').date() if serial_data.get('expiry_date') else None,
+                        manufacture_date=datetime.strptime(serial_data['manufacture_date'], '%Y-%m-%d').date() if serial_data.get('manufacture_date') else None,
+                        notes=serial_data.get('notes', ''),
+                        quantity=1.0,
+                        base_line_number=idx
+                    )
+                    db.session.add(serial)
+                
+                logging.info(f"✅ Added {len(serial_numbers)} serial numbers for item {item_code}")
+                
+            except json.JSONDecodeError:
+                flash('Invalid serial numbers data format', 'error')
+                db.session.rollback()
+                return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+            except Exception as e:
+                flash(f'Error processing serial numbers: {str(e)}', 'error')
+                db.session.rollback()
+                return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+        
+        # **BATCH NUMBER HANDLING**
+        if is_batch_managed and batch_numbers_json:
+            try:
+                batch_numbers = json.loads(batch_numbers_json)
+                
+                # Validate total batch quantity matches item quantity
+                total_batch_qty = sum(float(b.get('quantity', 0)) for b in batch_numbers)
+                if abs(total_batch_qty - quantity) > 0.001:
+                    flash(f'Total batch quantity ({total_batch_qty}) must equal item quantity ({quantity})', 'error')
+                    db.session.rollback()
+                    return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+                
+                # Create batch number records
+                for idx, batch_data in enumerate(batch_numbers):
+                    batch = GRPOBatchNumber(
+                        grpo_item_id=grpo_item.id,
+                        batch_number=batch_data.get('batch_number'),
+                        quantity=float(batch_data.get('quantity', 0)),
+                        manufacturer_serial_number=batch_data.get('manufacturer_serial_number', ''),
+                        internal_serial_number=batch_data.get('internal_serial_number', ''),
+                        expiry_date=datetime.strptime(batch_data['expiry_date'], '%Y-%m-%d').date() if batch_data.get('expiry_date') else None,
+                        base_line_number=idx
+                    )
+                    db.session.add(batch)
+                
+                logging.info(f"✅ Added {len(batch_numbers)} batch numbers for item {item_code}")
+                
+            except json.JSONDecodeError:
+                flash('Invalid batch numbers data format', 'error')
+                db.session.rollback()
+                return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+            except Exception as e:
+                flash(f'Error processing batch numbers: {str(e)}', 'error')
+                db.session.rollback()
+                return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+        
         db.session.commit()
         
-        logging.info(f"✅ Item {item_code} added to GRPO {grpo_id} with duplicate prevention")
+        logging.info(f"✅ Item {item_code} added to GRPO {grpo_id} (Batch: {is_batch_managed}, Serial: {is_serial_managed})")
         flash(f'Item {item_code} successfully added to GRPO', 'success')
         
     except Exception as e:
         logging.error(f"Error adding item to GRPO: {str(e)}")
         flash(f'Error adding item: {str(e)}', 'error')
+        db.session.rollback()
     
     return redirect(url_for('grpo.detail', grpo_id=grpo_id))
 

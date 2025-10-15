@@ -239,7 +239,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="quantity" class="form-label">Quantity <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="quantity" name="quantity" step="0.01" min="1" required>
+                                <input type="number" class="form-control" id="quantity" name="quantity" step="0.01" min="1" required onchange="onQuantityChange()">
                             </div>
                         </div>
                         
@@ -247,9 +247,47 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="unit_of_measure" class="form-label">Unit of Measure (UoM) <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="unit_of_measure" name="unit_of_measure" value="EA" required>
+                                <input type="text" class="form-control" id="unit_of_measure" name="unit_of_measure" value="NOS" required>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Item Type Indicator -->
+                    <div id="item_type_indicator" class="alert alert-info mb-3" style="display: none;">
+                        <i data-feather="info"></i> <span id="item_type_text"></span>
+                    </div>
+                    
+                    <!-- Serial Numbers Section (Dynamic) -->
+                    <div id="serial_numbers_container" class="mb-3" style="display: none;">
+                        <label class="form-label">Serial Numbers <span class="text-danger">*</span></label>
+                        <div id="serial_numbers_list"></div>
+                        <input type="hidden" name="serial_numbers_json" id="serial_numbers_json">
+                    </div>
+                    
+                    <!-- Batch Numbers Section (Dynamic) -->
+                    <div id="batch_numbers_container" class="mb-3" style="display: none;">
+                        <label class="form-label">Batch Numbers <span class="text-danger">*</span></label>
+                        <div id="batch_numbers_list">
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control batch-number" placeholder="Batch Number" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <input type="number" class="form-control batch-quantity" placeholder="Quantity" step="0.001" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <input type="date" class="form-control batch-expiry" placeholder="Expiry Date">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-success w-100" onclick="addBatchRow()">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" name="batch_numbers_json" id="batch_numbers_json">
                     </div>
                     
                     <!-- Warehouse -->
@@ -532,6 +570,9 @@ function onItemCodeChange() {
     }
 }
 
+// Global variables to store item validation info
+let currentItemValidation = null;
+
 // Validate ItemCode via SAP API
 function validateItemCode(itemCode) {
     console.log('Validating ItemCode:', itemCode);
@@ -540,48 +581,34 @@ function validateItemCode(itemCode) {
         .then(response => response.json())
         .then(data => {
             console.log('Validation result:', data);
+            currentItemValidation = data;
             
             if (data.success) {
-                // Enable/disable Batch Number based on batch_required
-                const batchSection = document.getElementById('batch_number_section');
-                const batchDropdown = document.getElementById('batch_dropdown');
-                const batchManual = document.getElementById('batch_manual');
+                // Show item type indicator
+                const indicator = document.getElementById('item_type_indicator');
+                const indicatorText = document.getElementById('item_type_text');
                 
                 if (data.batch_required) {
-                    batchSection.style.display = 'block';
-                    batchDropdown.disabled = false;
-                    console.log('✅ Batch Number field enabled');
+                    indicator.style.display = 'block';
+                    indicatorText.textContent = 'This item is Batch Managed - Please enter batch details';
+                    showBatchSection();
+                    hideSerialSection();
+                } else if (data.serial_required) {
+                    indicator.style.display = 'block';
+                    indicatorText.textContent = 'This item is Serial Managed - Enter serial numbers for each quantity';
+                    hideOldBatchSerialSections();
+                    // Serial section will be shown when quantity is entered
                 } else {
-                    batchSection.style.display = 'none';
-                    batchDropdown.disabled = true;
-                    batchManual.disabled = true;
-                    console.log('❌ Batch Number field disabled');
+                    indicator.style.display = 'none';
+                    hideOldBatchSerialSections();
+                    hideSerialSection();
+                    hideBatchSection();
                 }
                 
-                // Enable/disable Serial Number based on serial_required
-                const serialSection = document.getElementById('serial_number_section');
-                const serialInput = document.getElementById('serial_number');
-                
-                if (data.serial_required) {
-                    serialSection.style.display = 'block';
-                    serialInput.disabled = false;
-                    console.log('✅ Serial Number field enabled');
-                } else {
-                    serialSection.style.display = 'none';
-                    serialInput.disabled = true;
-                    console.log('❌ Serial Number field disabled');
-                }
-                
-                // Handle manage_method (A or R)
-                const quantity = document.getElementById('quantity');
-                if (data.manage_method === 'R') {
-                    console.log('📦 Item uses FIFO/Release method (R) - quantity based');
-                    quantity.setAttribute('data-manage-method', 'R');
-                } else if (data.manage_method === 'A') {
-                    console.log('📦 Item uses Average method (A)');
-                    quantity.setAttribute('data-manage-method', 'A');
-                } else {
-                    quantity.setAttribute('data-manage-method', 'N');
+                // Trigger quantity change to create serial inputs if needed
+                const qty = document.getElementById('quantity').value;
+                if (qty && parseInt(qty) > 0 && data.serial_required) {
+                    onQuantityChange();
                 }
                 
             } else {
@@ -789,6 +816,150 @@ function resetBinDropdown() {
     binDropdown.disabled = true;
     binDropdown.innerHTML = '<option value="">Select Bin Location...</option>';
 }
+
+// Helper functions for new serial/batch sections
+function onQuantityChange() {
+    if (!currentItemValidation) return;
+    
+    const qty = parseInt(document.getElementById('quantity').value);
+    if (isNaN(qty) || qty <= 0) return;
+    
+    if (currentItemValidation.serial_required) {
+        generateSerialInputs(qty);
+    }
+}
+
+function generateSerialInputs(quantity) {
+    const container = document.getElementById('serial_numbers_container');
+    const list = document.getElementById('serial_numbers_list');
+    
+    list.innerHTML = '';
+    
+    for (let i = 0; i < quantity; i++) {
+        const card = document.createElement('div');
+        card.className = 'card mb-2';
+        card.innerHTML = `
+            <div class="card-body">
+                <h6>Serial ${i + 1} of ${quantity}</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control serial-internal" placeholder="Internal S/N *" required data-index="${i}">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control serial-manufacturer" placeholder="Manufacturer S/N" data-index="${i}">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" class="form-control serial-expiry" placeholder="Expiry Date" data-index="${i}">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" class="form-control serial-manufacture" placeholder="Mfg Date" data-index="${i}">
+                    </div>
+                </div>
+            </div>
+        `;
+        list.appendChild(card);
+    }
+    
+    container.style.display = 'block';
+}
+
+function hideSerialSection() {
+    document.getElementById('serial_numbers_container').style.display = 'none';
+}
+
+function showBatchSection() {
+    document.getElementById('batch_numbers_container').style.display = 'block';
+}
+
+function hideBatchSection() {
+    document.getElementById('batch_numbers_container').style.display = 'none';
+}
+
+function hideOldBatchSerialSections() {
+    const batch = document.getElementById('batch_number_section');
+    const serial = document.getElementById('serial_number_section');
+    if (batch) batch.style.display = 'none';
+    if (serial) serial.style.display = 'none';
+}
+
+function addBatchRow() {
+    const list = document.getElementById('batch_numbers_list');
+    const newRow = document.createElement('div');
+    newRow.className = 'card mb-2';
+    newRow.innerHTML = `
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <input type="text" class="form-control batch-number" placeholder="Batch Number" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="number" class="form-control batch-quantity" placeholder="Quantity" step="0.001" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" class="form-control batch-expiry" placeholder="Expiry Date">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-danger w-100" onclick="removeBatchRow(this)">-</button>
+                </div>
+            </div>
+        </div>
+    `;
+    list.appendChild(newRow);
+}
+
+function removeBatchRow(button) {
+    button.closest('.card').remove();
+}
+
+// Collect serial/batch data before form submission
+document.getElementById('addItemForm').addEventListener('submit', function(e) {
+    if (currentItemValidation) {
+        if (currentItemValidation.serial_required) {
+            // Collect serial numbers
+            const serialData = [];
+            const internalSerials = document.querySelectorAll('.serial-internal');
+            const manufacturerSerials = document.querySelectorAll('.serial-manufacturer');
+            const expiryDates = document.querySelectorAll('.serial-expiry');
+            const manufactureDates = document.querySelectorAll('.serial-manufacture');
+            
+            for (let i = 0; i < internalSerials.length; i++) {
+                serialData.push({
+                    internal_serial_number: internalSerials[i].value,
+                    manufacturer_serial_number: manufacturerSerials[i].value || '',
+                    expiry_date: expiryDates[i].value || null,
+                    manufacture_date: manufactureDates[i].value || null,
+                    notes: 'Auto-created from GRN'
+                });
+            }
+            
+            document.getElementById('serial_numbers_json').value = JSON.stringify(serialData);
+        }
+        
+        if (currentItemValidation.batch_required) {
+            // Collect batch numbers
+            const batchData = [];
+            const batchCards = document.querySelectorAll('#batch_numbers_list .card');
+            
+            batchCards.forEach(card => {
+                const batchNumber = card.querySelector('.batch-number').value;
+                const quantity = card.querySelector('.batch-quantity').value;
+                const expiryDate = card.querySelector('.batch-expiry').value;
+                
+                if (batchNumber && quantity) {
+                    batchData.push({
+                        batch_number: batchNumber,
+                        quantity: parseFloat(quantity),
+                        expiry_date: expiryDate || null,
+                        manufacturer_serial_number: '',
+                        internal_serial_number: ''
+                    });
+                }
+            });
+            
+            document.getElementById('batch_numbers_json').value = JSON.stringify(batchData);
+        }
+    }
+});
 
 // Serial/Batch Number Management
 let currentItemId = null;

@@ -2453,8 +2453,51 @@ class SAPIntegration:
                 "WarehouseCode": warehouse_code
             }
 
-            # Add batch information in EXACT format as user specified
-            if item.batch_number:
+            # Add SerialNumbers array if item has serial numbers
+            if hasattr(item, 'serial_numbers') and item.serial_numbers:
+                serial_numbers_array = []
+                for serial in item.serial_numbers:
+                    serial_entry = {
+                        "Quantity": float(serial.quantity),
+                        "BaseLineNumber": serial.base_line_number
+                    }
+                    if serial.manufacturer_serial_number:
+                        serial_entry["ManufacturerSerialNumber"] = serial.manufacturer_serial_number
+                    if serial.internal_serial_number:
+                        serial_entry["InternalSerialNumber"] = serial.internal_serial_number
+                    if serial.expiry_date:
+                        serial_entry["ExpiryDate"] = serial.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(serial.expiry_date, 'strftime') else str(serial.expiry_date) + "T00:00:00Z"
+                    if serial.manufacture_date:
+                        serial_entry["ManufactureDate"] = serial.manufacture_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(serial.manufacture_date, 'strftime') else str(serial.manufacture_date) + "T00:00:00Z"
+                    if serial.notes:
+                        serial_entry["Notes"] = serial.notes
+                    
+                    serial_numbers_array.append(serial_entry)
+                
+                line["SerialNumbers"] = serial_numbers_array
+            
+            # Add BatchNumbers array if item has batch numbers
+            elif hasattr(item, 'batch_numbers') and item.batch_numbers:
+                batch_numbers_array = []
+                for batch in item.batch_numbers:
+                    batch_entry = {
+                        "BatchNumber": batch.batch_number,
+                        "Quantity": float(batch.quantity),
+                        "BaseLineNumber": batch.base_line_number
+                    }
+                    if batch.manufacturer_serial_number:
+                        batch_entry["ManufacturerSerialNumber"] = batch.manufacturer_serial_number
+                    if batch.internal_serial_number:
+                        batch_entry["InternalSerialNumber"] = batch.internal_serial_number
+                    if batch.expiry_date:
+                        batch_entry["ExpiryDate"] = batch.expiry_date.strftime('%Y-%m-%dT%H:%M:%SZ') if hasattr(batch.expiry_date, 'strftime') else str(batch.expiry_date) + "T00:00:00Z"
+                    
+                    batch_numbers_array.append(batch_entry)
+                
+                line["BatchNumbers"] = batch_numbers_array
+            
+            # Fallback: Old single batch number field (for backward compatibility)
+            elif item.batch_number:
                 # Format expiry date properly
                 expiry_date = doc_date + "T00:00:00Z"  # Default to PO date
                 if item.expiration_date:

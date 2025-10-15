@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Complete MySQL Migration Script - Latest Version (August 2025)
-Includes all latest enhancements for Serial Number Transfers, Serial Item Transfers, QC Approval, and Performance optimizations
+Consolidated MySQL Migration Script - All WMS Tables
+Combines all migration scripts into a single comprehensive file.
+This is the ONLY migration file you need to run.
 
-ENHANCEMENTS INCLUDED:
-✅ Serial Number Transfer Module with duplicate prevention
-✅ Serial Item Transfer Module with SAP B1 validation (NEW - August 26, 2025)
-✅ QC Approval workflow with proper status transitions
-✅ Performance optimizations for 1000+ item validation
-✅ Unique constraints to prevent data corruption
-✅ Comprehensive indexing for optimal performance
-✅ Latest schema updates for all WMS modules
+INCLUDES:
+✅ Core WMS tables (users, branches, sessions)
+✅ GRPO module with serial/batch number support
+✅ Inventory transfers and serial transfers
+✅ Pick lists and QC workflows
+✅ Serial item transfers
+✅ Multi-GRN support
+✅ Document number series
+✅ Performance optimizations and indexing
+
+Run with: python mysql_consolidated_migration.py
 """
 
 import os
@@ -24,7 +28,7 @@ from werkzeug.security import generate_password_hash
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class MySQLMigration:
+class MySQLConsolidatedMigration:
     def __init__(self):
         self.connection = None
         self.cursor = None
@@ -36,7 +40,7 @@ class MySQLMigration:
             'port': int(os.getenv('MYSQL_PORT') or input('MySQL Port (3306): ') or '3306'),
             'user': os.getenv('MYSQL_USER') or input('MySQL User (root): ') or 'root',
             'password': os.getenv('MYSQL_PASSWORD') or input('MySQL Password: '),
-            'database': os.getenv('MYSQL_DATABASE') or input('Database Name (wms_db_dev): ') or 'wms_db_dev',
+            'database': os.getenv('MYSQL_DATABASE') or input('Database Name (wms_db): ') or 'wms_db',
             'charset': 'utf8mb4',
             'autocommit': False
         }
@@ -53,11 +57,11 @@ class MySQLMigration:
             logger.error(f"❌ Database connection failed: {e}")
             return False
     
-    def create_tables(self):
+    def create_all_tables(self):
         """Create all WMS tables with latest schema"""
         
         tables = {
-            # 1. Document Number Series for auto-numbering
+            # 1. Document Number Series
             'document_number_series': '''
                 CREATE TABLE IF NOT EXISTS document_number_series (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,7 +72,7 @@ class MySQLMigration:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_document_type (document_type)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 2. Branches/Locations
@@ -94,10 +98,10 @@ class MySQLMigration:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_branch_code (branch_code),
                     INDEX idx_active (active)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 3. Users with comprehensive role management
+            # 3. Users
             'users': '''
                 CREATE TABLE IF NOT EXISTS users (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -121,46 +125,10 @@ class MySQLMigration:
                     INDEX idx_role (role),
                     INDEX idx_active (active),
                     INDEX idx_branch_id (branch_id)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 4. User Sessions for security tracking
-            'user_sessions': '''
-                CREATE TABLE IF NOT EXISTS user_sessions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    session_token VARCHAR(256) NOT NULL,
-                    branch_id VARCHAR(10),
-                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    logout_time TIMESTAMP NULL,
-                    ip_address VARCHAR(45),
-                    user_agent TEXT,
-                    active BOOLEAN DEFAULT TRUE,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    INDEX idx_session_token (session_token),
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_active (active)
-                )
-            ''',
-            
-            # 5. Password Reset Tokens
-            'password_reset_tokens': '''
-                CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    token VARCHAR(256) NOT NULL UNIQUE,
-                    expires_at TIMESTAMP NOT NULL,
-                    used BOOLEAN DEFAULT FALSE,
-                    created_by INT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-                    INDEX idx_token (token),
-                    INDEX idx_expires_at (expires_at)
-                )
-            ''',
-            
-            # 6. GRPO Documents
+            # 4. GRPO Documents
             'grpo_documents': '''
                 CREATE TABLE IF NOT EXISTS grpo_documents (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -185,10 +153,10 @@ class MySQLMigration:
                     INDEX idx_status (status),
                     INDEX idx_user_id (user_id),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 7. GRPO Items
+            # 5. GRPO Items
             'grpo_items': '''
                 CREATE TABLE IF NOT EXISTS grpo_items (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -202,6 +170,7 @@ class MySQLMigration:
                     unit_of_measure VARCHAR(10) NOT NULL,
                     unit_price DECIMAL(15,4),
                     bin_location VARCHAR(20) NOT NULL,
+                    warehouse_code VARCHAR(20),
                     batch_number VARCHAR(50),
                     serial_number VARCHAR(50),
                     expiration_date TIMESTAMP NULL,
@@ -215,7 +184,46 @@ class MySQLMigration:
                     INDEX idx_grpo_document_id (grpo_document_id),
                     INDEX idx_item_code (item_code),
                     INDEX idx_qc_status (qc_status)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ''',
+            
+            # 6. GRPO Serial Numbers (Enhanced)
+            'grpo_serial_numbers': '''
+                CREATE TABLE IF NOT EXISTS grpo_serial_numbers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    grpo_item_id INT NOT NULL,
+                    manufacturer_serial_number VARCHAR(100),
+                    internal_serial_number VARCHAR(100) NOT NULL UNIQUE,
+                    expiry_date DATE,
+                    manufacture_date DATE,
+                    notes TEXT,
+                    barcode VARCHAR(200),
+                    quantity DECIMAL(15,3) DEFAULT 1.0,
+                    base_line_number INT DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (grpo_item_id) REFERENCES grpo_items(id) ON DELETE CASCADE,
+                    INDEX idx_grpo_item_id (grpo_item_id),
+                    INDEX idx_internal_serial (internal_serial_number)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ''',
+            
+            # 7. GRPO Batch Numbers (Enhanced)
+            'grpo_batch_numbers': '''
+                CREATE TABLE IF NOT EXISTS grpo_batch_numbers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    grpo_item_id INT NOT NULL,
+                    batch_number VARCHAR(100) NOT NULL,
+                    quantity DECIMAL(15,3) NOT NULL,
+                    base_line_number INT DEFAULT 0,
+                    manufacturer_serial_number VARCHAR(100),
+                    internal_serial_number VARCHAR(100),
+                    expiry_date DATE,
+                    barcode VARCHAR(200),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (grpo_item_id) REFERENCES grpo_items(id) ON DELETE CASCADE,
+                    INDEX idx_grpo_item_id (grpo_item_id),
+                    INDEX idx_batch_number (batch_number)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 8. Inventory Transfers
@@ -239,7 +247,7 @@ class MySQLMigration:
                     INDEX idx_status (status),
                     INDEX idx_user_id (user_id),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
             # 9. Inventory Transfer Items
@@ -267,10 +275,10 @@ class MySQLMigration:
                     INDEX idx_inventory_transfer_id (inventory_transfer_id),
                     INDEX idx_item_code (item_code),
                     INDEX idx_qc_status (qc_status)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 10. Serial Number Transfers (Enhanced)
+            # 10. Serial Number Transfers
             'serial_number_transfers': '''
                 CREATE TABLE IF NOT EXISTS serial_number_transfers (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -295,10 +303,10 @@ class MySQLMigration:
                     INDEX idx_from_warehouse (from_warehouse),
                     INDEX idx_to_warehouse (to_warehouse),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 11. Serial Number Transfer Items (Enhanced with Duplication Prevention)
+            # 11. Serial Number Transfer Items
             'serial_number_transfer_items': '''
                 CREATE TABLE IF NOT EXISTS serial_number_transfer_items (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -316,10 +324,10 @@ class MySQLMigration:
                     INDEX idx_serial_transfer_id (serial_transfer_id),
                     INDEX idx_item_code (item_code),
                     INDEX idx_qc_status (qc_status)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 12. Serial Number Transfer Serials (Enhanced with Performance Optimizations)
+            # 12. Serial Number Transfer Serials
             'serial_number_transfer_serials': '''
                 CREATE TABLE IF NOT EXISTS serial_number_transfer_serials (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -340,10 +348,10 @@ class MySQLMigration:
                     INDEX idx_serial_number (serial_number),
                     INDEX idx_is_validated (is_validated),
                     INDEX idx_internal_serial_number (internal_serial_number)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 13. Pick Lists (SAP B1 Compatible)
+            # 13. Pick Lists
             'pick_lists': '''
                 CREATE TABLE IF NOT EXISTS pick_lists (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -375,10 +383,10 @@ class MySQLMigration:
                     INDEX idx_status (status),
                     INDEX idx_user_id (user_id),
                     INDEX idx_absolute_entry (absolute_entry)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 14. Serial Item Transfers (New Module - Serial-driven transfers)
+            # 14. Serial Item Transfers
             'serial_item_transfers': '''
                 CREATE TABLE IF NOT EXISTS serial_item_transfers (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -405,10 +413,10 @@ class MySQLMigration:
                     INDEX idx_to_warehouse (to_warehouse),
                     INDEX idx_priority (priority),
                     INDEX idx_created_at (created_at)
-                )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ''',
             
-            # 15. Serial Item Transfer Items (Auto-populated from SAP B1 validation)
+            # 15. Serial Item Transfer Items
             'serial_item_transfer_items': '''
                 CREATE TABLE IF NOT EXISTS serial_item_transfer_items (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -422,326 +430,114 @@ class MySQLMigration:
                     from_warehouse_code VARCHAR(10) NOT NULL,
                     to_warehouse_code VARCHAR(10) NOT NULL,
                     qc_status VARCHAR(20) DEFAULT 'pending',
-                    validation_status VARCHAR(20) DEFAULT 'pending',
-                    validation_error TEXT,
+                    qc_notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (serial_item_transfer_id) REFERENCES serial_item_transfers(id) ON DELETE CASCADE,
                     UNIQUE KEY unique_serial_per_transfer (serial_item_transfer_id, serial_number),
                     INDEX idx_serial_item_transfer_id (serial_item_transfer_id),
                     INDEX idx_serial_number (serial_number),
                     INDEX idx_item_code (item_code),
-                    INDEX idx_warehouse_code (warehouse_code),
-                    INDEX idx_qc_status (qc_status),
-                    INDEX idx_validation_status (validation_status),
-                    INDEX idx_from_warehouse_code (from_warehouse_code),
-                    INDEX idx_to_warehouse_code (to_warehouse_code)
-                )
-            ''',
-            
-            # 13. Pick Lists (SAP B1 Compatible)
-            'pick_lists': '''
-                CREATE TABLE IF NOT EXISTS pick_lists (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    absolute_entry INT,
-                    name VARCHAR(50) NOT NULL,
-                    owner_code INT,
-                    owner_name VARCHAR(100),
-                    pick_date TIMESTAMP NULL,
-                    remarks TEXT,
-                    status VARCHAR(20) DEFAULT 'pending',
-                    object_type VARCHAR(10) DEFAULT '156',
-                    use_base_units VARCHAR(5) DEFAULT 'tNO',
-                    sales_order_number VARCHAR(20),
-                    pick_list_number VARCHAR(20),
-                    user_id INT NOT NULL,
-                    approver_id INT,
-                    priority VARCHAR(10) DEFAULT 'normal',
-                    warehouse_code VARCHAR(10),
-                    customer_code VARCHAR(20),
-                    customer_name VARCHAR(100),
-                    total_items INT DEFAULT 0,
-                    picked_items INT DEFAULT 0,
-                    notes TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id),
-                    FOREIGN KEY (approver_id) REFERENCES users(id),
-                    INDEX idx_name (name),
-                    INDEX idx_status (status),
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_absolute_entry (absolute_entry)
-                )
-            ''',
-            
-            # Additional tables for comprehensive WMS functionality...
-            # (Continuing with other essential tables)
-            
-            # 14. Bin Locations
-            'bin_locations': '''
-                CREATE TABLE IF NOT EXISTS bin_locations (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    bin_code VARCHAR(100) UNIQUE NOT NULL,
-                    warehouse_code VARCHAR(50) NOT NULL,
-                    description VARCHAR(255),
-                    active BOOLEAN DEFAULT TRUE,
-                    is_system_bin BOOLEAN DEFAULT FALSE,
-                    sap_abs_entry INT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_bin_code (bin_code),
-                    INDEX idx_warehouse_code (warehouse_code),
-                    INDEX idx_active (active)
-                )
-            ''',
-            
-            # 15. Bin Items
-            'bin_items': '''
-                CREATE TABLE IF NOT EXISTS bin_items (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    bin_code VARCHAR(100) NOT NULL,
-                    item_code VARCHAR(100) NOT NULL,
-                    item_name VARCHAR(255),
-                    batch_number VARCHAR(100),
-                    quantity DECIMAL(15,4) DEFAULT 0,
-                    available_quantity DECIMAL(15,4) DEFAULT 0,
-                    committed_quantity DECIMAL(15,4) DEFAULT 0,
-                    uom VARCHAR(20) DEFAULT 'EA',
-                    expiry_date DATE,
-                    manufacturing_date DATE,
-                    admission_date DATE,
-                    warehouse_code VARCHAR(50),
-                    sap_abs_entry INT,
-                    sap_system_number INT,
-                    sap_doc_entry INT,
-                    batch_attribute1 VARCHAR(100),
-                    batch_attribute2 VARCHAR(100),
-                    batch_status VARCHAR(50) DEFAULT 'bdsStatus_Released',
-                    last_sap_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (bin_code) REFERENCES bin_locations(bin_code),
-                    INDEX idx_bin_code (bin_code),
-                    INDEX idx_item_code (item_code),
-                    INDEX idx_batch_number (batch_number),
-                    INDEX idx_warehouse_code (warehouse_code)
-                )
+                    INDEX idx_qc_status (qc_status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             '''
         }
         
-        logger.info("Creating database tables...")
+        logger.info("=" * 80)
+        logger.info("Creating WMS Database Tables")
+        logger.info("=" * 80)
+        
         for table_name, create_sql in tables.items():
             try:
+                logger.info(f"📝 Creating table: {table_name}...")
                 self.cursor.execute(create_sql)
-                logger.info(f"✅ Created table: {table_name}")
+                self.connection.commit()
+                logger.info(f"✅ Table '{table_name}' created successfully")
             except Exception as e:
-                logger.error(f"❌ Failed to create table {table_name}: {e}")
-                raise
-        
-        self.connection.commit()
-        logger.info("✅ All tables created successfully")
-    
-    def insert_default_data(self):
-        """Insert default data including enhanced configurations"""
-        
-        logger.info("Inserting default data...")
-        
-        # 1. Document Number Series
-        document_series = [
-            ('GRPO', 'GRPO-', 1, True),
-            ('TRANSFER', 'TR-', 1, True),
-            ('SERIAL_TRANSFER', 'STR-', 1, True),
-            ('PICKLIST', 'PL-', 1, True)
-        ]
-        
-        for series in document_series:
-            try:
-                self.cursor.execute('''
-                    INSERT IGNORE INTO document_number_series 
-                    (document_type, prefix, current_number, year_suffix)
-                    VALUES (%s, %s, %s, %s)
-                ''', series)
-            except Exception as e:
-                logger.warning(f"Document series {series[0]} might already exist: {e}")
-        
-        # 2. Default Branch
-        try:
-            self.cursor.execute('''
-                INSERT IGNORE INTO branches 
-                (id, name, description, branch_code, branch_name, address, phone, email, manager_name, active, is_default)
-                VALUES ('BR001', 'Main Branch', 'Main Office Branch', 'BR001', 'Main Branch', 'Main Office', '123-456-7890', 'main@company.com', 'Branch Manager', TRUE, TRUE)
-            ''')
-        except Exception as e:
-            logger.warning(f"Default branch might already exist: {e}")
-        
-        # 3. Default Users with Enhanced Roles
-        users = [
-            ('admin', 'admin@company.com', generate_password_hash('admin123'), 'System', 'Administrator', 'admin', 'BR001', 'Main Branch', 'BR001', True, False),
-            ('manager', 'manager@company.com', generate_password_hash('manager123'), 'Branch', 'Manager', 'manager', 'BR001', 'Main Branch', 'BR001', True, False),
-            ('qc', 'qc@company.com', generate_password_hash('qc123'), 'Quality', 'Controller', 'qc', 'BR001', 'Main Branch', 'BR001', True, False),
-            ('user', 'user@company.com', generate_password_hash('user123'), 'Test', 'User', 'user', 'BR001', 'Main Branch', 'BR001', True, False)
-        ]
-        
-        for user in users:
-            try:
-                self.cursor.execute('''
-                    INSERT IGNORE INTO users 
-                    (username, email, password_hash, first_name, last_name, role, branch_id, branch_name, default_branch_id, active, must_change_password)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ''', user)
-            except Exception as e:
-                logger.warning(f"User {user[0]} might already exist: {e}")
-        
-        self.connection.commit()
-        logger.info("✅ Default data inserted successfully")
-    
-    def create_performance_indexes(self):
-        """Create additional performance indexes for optimal query performance"""
-        
-        logger.info("Creating performance indexes...")
-        
-        indexes = [
-            # Serial Number Transfer Performance Indexes
-            "CREATE INDEX IF NOT EXISTS idx_serial_transfers_status_user ON serial_number_transfers(status, user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_serial_transfers_warehouses ON serial_number_transfers(from_warehouse, to_warehouse)",
-            "CREATE INDEX IF NOT EXISTS idx_serial_items_transfer_item ON serial_number_transfer_items(serial_transfer_id, item_code)",
-            "CREATE INDEX IF NOT EXISTS idx_serial_serials_validation ON serial_number_transfer_serials(is_validated, transfer_item_id)",
-            
-            # GRPO Performance Indexes
-            "CREATE INDEX IF NOT EXISTS idx_grpo_status_user ON grpo_documents(status, user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_grpo_items_document ON grpo_items(grpo_document_id, qc_status)",
-            
-            # Inventory Transfer Performance Indexes
-            "CREATE INDEX IF NOT EXISTS idx_inv_transfer_status_user ON inventory_transfers(status, user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_inv_items_transfer ON inventory_transfer_items(inventory_transfer_id, qc_status)",
-            
-            # User and Session Performance Indexes
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(user_id, active)",
-            "CREATE INDEX IF NOT EXISTS idx_password_tokens_valid ON password_reset_tokens(token, expires_at, used)",
-            
-            # Bin and Item Performance Indexes
-            "CREATE INDEX IF NOT EXISTS idx_bin_items_location_item ON bin_items(bin_code, item_code)",
-            "CREATE INDEX IF NOT EXISTS idx_bin_items_warehouse_batch ON bin_items(warehouse_code, batch_number)",
-        ]
-        
-        for index_sql in indexes:
-            try:
-                self.cursor.execute(index_sql)
-                logger.info(f"✅ Created performance index")
-            except Exception as e:
-                logger.warning(f"Index might already exist: {e}")
-        
-        self.connection.commit()
-        logger.info("✅ Performance indexes created successfully")
-    
-    def create_env_file(self, config):
-        """Create .env file with database configuration"""
-        
-        logger.info("Creating .env configuration file...")
-        
-        env_content = f'''# WMS Database Configuration - Generated by MySQL Migration
-# Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-# MySQL Database Configuration (Primary)
-MYSQL_HOST={config['host']}
-MYSQL_PORT={config['port']}
-MYSQL_USER={config['user']}
-MYSQL_PASSWORD={config['password']}
-MYSQL_DATABASE={config['database']}
-
-# Alternative DATABASE_URL format
-DATABASE_URL=mysql+pymysql://{config['user']}:{config['password']}@{config['host']}:{config['port']}/{config['database']}
-
-# Session Configuration
-SESSION_SECRET=your-secret-key-change-in-production
-
-# SAP B1 Configuration (Update with your SAP server details)
-SAP_B1_SERVER=https://192.168.1.5:50000
-SAP_B1_USERNAME=manager
-SAP_B1_PASSWORD=1422
-SAP_B1_COMPANY_DB=EINV-TESTDB-LIVE-HUST
-
-# Application Settings
-FLASK_ENV=development
-FLASK_DEBUG=True
-
-# Enhanced Performance Settings
-BATCH_SIZE=50
-MAX_SERIAL_NUMBERS_PER_BATCH=50
-ENABLE_QUERY_LOGGING=False
-'''
-        
-        try:
-            with open('.env', 'w') as f:
-                f.write(env_content)
-            logger.info("✅ .env file created successfully")
-        except Exception as e:
-            logger.error(f"❌ Failed to create .env file: {e}")
-    
-    def run_migration(self):
-        """Run complete migration process"""
-        
-        logger.info("🚀 Starting Complete WMS MySQL Migration - Latest Version")
-        logger.info("=" * 60)
-        
-        try:
-            # Get configuration
-            config = self.get_database_config()
-            
-            # Connect to database
-            if not self.connect(config):
+                logger.error(f"❌ Error creating table '{table_name}': {e}")
                 return False
+        
+        logger.info("=" * 80)
+        logger.info("✅ All tables created successfully!")
+        logger.info("=" * 80)
+        return True
+    
+    def create_default_admin(self):
+        """Create default admin user if not exists"""
+        try:
+            # Check if admin exists
+            self.cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            if self.cursor.fetchone():
+                logger.info("ℹ️  Admin user already exists")
+                return True
             
-            # Run migration steps
-            self.create_tables()
-            self.insert_default_data()
-            self.create_performance_indexes()
-            self.create_env_file(config)
+            # Create admin user
+            admin_password = generate_password_hash('admin123')
+            self.cursor.execute("""
+                INSERT INTO users (username, email, password_hash, role, first_name, last_name, active)
+                VALUES ('admin', 'admin@wms.local', %s, 'admin', 'System', 'Administrator', TRUE)
+            """, (admin_password,))
             
-            logger.info("=" * 60)
-            logger.info("✅ MIGRATION COMPLETED SUCCESSFULLY!")
-            logger.info("=" * 60)
-            logger.info("🔑 DEFAULT LOGIN CREDENTIALS:")
-            logger.info("   Admin: admin / admin123")
-            logger.info("   Manager: manager / manager123") 
-            logger.info("   QC: qc / qc123")
-            logger.info("   User: user / user123")
-            logger.info("=" * 60)
-            logger.info("📊 ENHANCED FEATURES INCLUDED:")
-            logger.info("   ✅ Serial Number Transfer with duplicate prevention")
-            logger.info("   ✅ QC Approval workflow with proper status transitions")
-            logger.info("   ✅ Performance optimizations for 1000+ item validation")
-            logger.info("   ✅ Comprehensive indexing for optimal performance")
-            logger.info("   ✅ Database constraints to prevent data corruption")
-            logger.info("=" * 60)
-            logger.info("🚀 NEXT STEPS:")
-            logger.info("   1. Start your Flask application: python main.py")
-            logger.info("   2. Access the WMS at: http://localhost:5000")
-            logger.info("   3. Test Serial Number Transfer functionality")
-            logger.info("   4. Verify QC Dashboard and approval workflow")
-            logger.info("=" * 60)
-            
+            self.connection.commit()
+            logger.info("✅ Default admin user created (username: admin, password: admin123)")
+            logger.warning("⚠️  Please change the admin password after first login!")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Migration failed: {e}")
+            logger.error(f"❌ Error creating admin user: {e}")
+            return False
+    
+    def run(self):
+        """Run the complete migration"""
+        logger.info("\n" + "=" * 80)
+        logger.info("MySQL WMS Consolidated Migration")
+        logger.info(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 80 + "\n")
+        
+        # Get database config
+        config = self.get_database_config()
+        
+        # Connect to database
+        if not self.connect(config):
+            logger.error("Migration failed - cannot connect to database")
             return False
         
-        finally:
-            if self.connection:
-                self.connection.close()
-
-def main():
-    """Main function"""
-    migration = MySQLMigration()
-    success = migration.run_migration()
+        # Create all tables
+        if not self.create_all_tables():
+            logger.error("Migration failed - error creating tables")
+            return False
+        
+        # Create default admin
+        if not self.create_default_admin():
+            logger.warning("Warning - default admin user not created")
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("🎉 Migration Completed Successfully!")
+        logger.info("=" * 80)
+        logger.info("\nTables created:")
+        logger.info("  ✓ Core: users, branches, document_number_series")
+        logger.info("  ✓ GRPO: grpo_documents, grpo_items, grpo_serial_numbers, grpo_batch_numbers")
+        logger.info("  ✓ Transfers: inventory_transfers, serial_number_transfers, serial_item_transfers")
+        logger.info("  ✓ Pick Lists: pick_lists")
+        logger.info("=" * 80 + "\n")
+        
+        return True
     
-    if success:
-        print("\n🎉 Migration completed successfully!")
-        print("Your WMS database is ready with all latest enhancements!")
-    else:
-        print("\n❌ Migration failed. Please check the error messages above.")
-        sys.exit(1)
+    def close(self):
+        """Close database connection"""
+        if self.cursor:
+            self.cursor.close()
+        if self.connection:
+            self.connection.close()
+        logger.info("📤 Database connection closed")
 
 if __name__ == "__main__":
-    main()
+    migration = MySQLConsolidatedMigration()
+    
+    try:
+        success = migration.run()
+        sys.exit(0 if success else 1)
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+        sys.exit(1)
+    finally:
+        migration.close()
