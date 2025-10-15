@@ -2488,11 +2488,14 @@ class SAPIntegration:
             # Add BatchNumbers array if item has batch numbers
             elif hasattr(item, 'batch_numbers') and item.batch_numbers:
                 batch_numbers_array = []
+                total_batch_quantity = 0.0
+                
                 for batch in item.batch_numbers:
+                    batch_quantity = float(batch.quantity) if batch.quantity else 0.0
                     batch_entry = {
                         "BatchNumber": batch.batch_number,
-                        "Quantity": float(batch.quantity),
-                        "BaseLineNumber": line_number  # Use current document line index
+                        "Quantity": batch_quantity,
+                        "BaseLineNumber": po_line_num  # Use PO BaseLine, not document line counter
                     }
                     if batch.manufacturer_serial_number:
                         batch_entry["ManufacturerSerialNumber"] = batch.manufacturer_serial_number
@@ -2506,7 +2509,10 @@ class SAPIntegration:
                         batch_entry["ExpiryDate"] = expiry_str
                     
                     batch_numbers_array.append(batch_entry)
+                    total_batch_quantity += batch_quantity
                 
+                # Update line quantity to sum of all batch quantities
+                line["Quantity"] = total_batch_quantity
                 line["BatchNumbers"] = batch_numbers_array
             
             # Fallback: Old single batch number field (for backward compatibility)
