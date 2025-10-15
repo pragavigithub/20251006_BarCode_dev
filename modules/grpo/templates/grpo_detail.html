@@ -139,6 +139,7 @@
                                     <th>UoM</th>
                                     <th>Warehouse</th>
                                     <th>Batch</th>
+                                    <th>Serial/Batch</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -151,6 +152,15 @@
                                     <td>{{ item.unit_of_measure or 'EA' }}</td>
                                     <td>{{ item.bin_location or 'N/A' }}</td>
                                     <td>{{ item.batch_number or '-' }}</td>
+                                    <td>
+                                        {% if item.serial_required == 'Y' or item.batch_required == 'Y' %}
+                                        <button class="btn btn-sm btn-info" onclick="openSerialBatchModal({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}', {{ item.received_quantity }}, {{ 'true' if item.batch_required == 'Y' else 'false' }}, {{ 'true' if item.serial_required == 'Y' else 'false' }})">
+                                            <i data-feather="grid"></i> Manage
+                                        </button>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if grpo_doc.status in ['draft', 'rejected'] %}
                                         <div class="btn-group">
