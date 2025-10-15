@@ -37,6 +37,27 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-15 - GRPO Item Validation Fields (Batch/Serial Requirements)
+- **File**: `mysql_grpo_item_validation_migration.py`
+- **Description**: Added ItemCode validation fields to GRPO items for batch and serial number management
+- **Tables Affected**: grpo_items
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - Added `batch_required` VARCHAR(1) DEFAULT 'N' to `grpo_items` - Indicates if batch number is required (Y/N)
+  - Added `serial_required` VARCHAR(1) DEFAULT 'N' to `grpo_items` - Indicates if serial number is required (Y/N)
+  - Added `manage_method` VARCHAR(1) DEFAULT 'N' to `grpo_items` - Item management method (A=Average, R=FIFO/Release, N=None)
+- **API Integration**:
+  - Added SAP API method `validate_item_code()` in `sap_integration.py` to call SQLQuery 'ItemCode_Batch_Serial_Val'
+  - Added validation endpoint `/grpo/validate-item/<item_code>` in GRPO routes
+  - Frontend dynamically enables/disables batch and serial number fields based on SAP validation
+- **Notes**: 
+  - Validation is performed via SAP B1 SQL Query: `SQLQueries('ItemCode_Batch_Serial_Val')/List`
+  - Fields are dynamically enabled/disabled in the GRPO detail modal based on item properties
+  - Supports FIFO/Release method (R) for quantity-based management
+
+---
+
 ### 2025-10-14 - MultiGRN Serial/Batch Number Support and Barcode Generation
 - **File**: `mysql/changes/2025-10-14_multi_grn_enhancements.sql`
 - **Description**: Added serial/batch number support and barcode generation to MultiGRN module
