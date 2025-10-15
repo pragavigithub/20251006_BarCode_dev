@@ -84,3 +84,40 @@ class PurchaseDeliveryNote(db.Model):
 
     # Relationships
     grpo_document = db.relationship('GRPODocument', backref='delivery_notes')
+
+class GRPOSerialNumber(db.Model):
+    """Serial numbers for GRPO items"""
+    __tablename__ = 'grpo_serial_numbers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    grpo_item_id = db.Column(db.Integer, db.ForeignKey('grpo_items.id'), nullable=False)
+    manufacturer_serial_number = db.Column(db.String(100))
+    internal_serial_number = db.Column(db.String(100), unique=True, nullable=False)
+    expiry_date = db.Column(db.Date)
+    manufacture_date = db.Column(db.Date)
+    notes = db.Column(db.Text)
+    barcode = db.Column(db.String(200))  # Base64 encoded barcode image
+    quantity = db.Column(db.Numeric(15, 3), default=1.0)
+    base_line_number = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    grpo_item = db.relationship('GRPOItem', backref=db.backref('serial_numbers', lazy=True, cascade='all, delete-orphan'))
+
+class GRPOBatchNumber(db.Model):
+    """Batch numbers for GRPO items"""
+    __tablename__ = 'grpo_batch_numbers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    grpo_item_id = db.Column(db.Integer, db.ForeignKey('grpo_items.id'), nullable=False)
+    batch_number = db.Column(db.String(100), nullable=False)
+    quantity = db.Column(db.Numeric(15, 3), nullable=False)
+    base_line_number = db.Column(db.Integer, default=0)
+    manufacturer_serial_number = db.Column(db.String(100))
+    internal_serial_number = db.Column(db.String(100))
+    expiry_date = db.Column(db.Date)
+    barcode = db.Column(db.String(200))  # Base64 encoded barcode image
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    grpo_item = db.relationship('GRPOItem', backref=db.backref('batch_numbers', lazy=True, cascade='all, delete-orphan'))
