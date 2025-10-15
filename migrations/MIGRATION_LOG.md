@@ -37,6 +37,32 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-15 - SAP B1 JSON Consolidation Fixes
+- **File**: `sap_integration.py` (create_purchase_delivery_note method)
+- **Description**: Fixed critical bugs in SAP B1 Purchase Delivery Note JSON generation
+- **Status**: ✅ Completed
+- **Changes**:
+  - **SerialNumbers Array**:
+    - Fixed `BaseLineNumber` to use PO BaseLine (`po_line_num`) instead of document line counter
+    - Fixed `Quantity` to always be 1.0 for each serial entry (SAP requirement)
+    - Fixed line-level `Quantity` to sum all serial quantities correctly
+    - Fixed date format to YYYY-MM-DD (removed ISO timestamp format)
+    - Added proper ManufactureDate and Notes fields
+  - **BatchNumbers Array**:
+    - Fixed `BaseLineNumber` to use PO BaseLine (`po_line_num`) instead of document line counter
+    - Fixed line-level `Quantity` to sum all batch quantities correctly
+    - Ensured proper quantity calculation from batch records
+- **SAP B1 Integration**:
+  - JSON now matches exact SAP B1 Service Layer API format
+  - Properly consolidates serial/batch data for posting
+  - Eliminates "Quantity: 0.0" errors
+  - Fixes BaseLineNumber reference issues
+- **Impact**: Critical fix for GRPO posting to SAP B1
+- **Notes**: 
+  - Validated against user-provided SAP B1 JSON examples
+  - Architect-reviewed and approved
+  - Ready for production testing
+
 ### 2025-10-15 - GRPO Serial and Batch Number Tables
 - **File**: `mysql_grpo_serial_batch_migration.py`
 - **Description**: Added dedicated tables for serial and batch number management with barcode support
