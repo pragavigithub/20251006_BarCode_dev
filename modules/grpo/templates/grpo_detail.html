@@ -699,15 +699,14 @@ function validateItemCodeFromSAP(itemCode) {
             console.log('serial_required value:', data.serial_required, 'type:', typeof data.serial_required);
             
             // Show/hide fields based on validation
-            const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
-            const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+            // Get the entire row containing batch and expiration fields
+            const batchExpiryRow = document.getElementById('batch_number').closest('.row');
             const serialSection = document.getElementById('serial_section');
             
             // Explicit boolean check - only show batch if batch_required is explicitly true
             if (data.batch_required === true) {
-                // Show batch fields, hide serial section
-                batchSection.style.display = 'block';
-                expirySection.style.display = 'block';
+                // Show batch fields, hide serial section (use 'flex' to preserve Bootstrap row layout)
+                if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
                 if (serialSection) serialSection.style.display = 'none';
                 
                 // Enable batch selection and load batches
@@ -716,21 +715,19 @@ function validateItemCodeFromSAP(itemCode) {
                 
                 console.log(`✅ Item ${itemCode} is BATCH managed - showing batch fields`);
             } else if (data.serial_required === true) {
-                // Show serial section, hide batch fields
-                batchSection.style.display = 'none';
-                expirySection.style.display = 'none';
+                // Show serial section, hide batch/expiry row completely
+                if (batchExpiryRow) batchExpiryRow.style.display = 'none';
                 if (serialSection) {
                     serialSection.style.display = 'block';
                     // Initialize serial number inputs based on quantity
                     initializeSerialInputs();
                 }
                 
-                console.log(`✅ Item ${itemCode} is SERIAL managed - showing serial fields`);
+                console.log(`✅ Item ${itemCode} is SERIAL managed - showing serial fields, hiding batch fields`);
             } else {
-                // Neither batch nor serial - hide both
-                batchSection.style.display = 'none';
+                // Neither batch nor serial - show batch/expiry for manual entry (use 'flex' to preserve Bootstrap row layout)
+                if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
                 if (serialSection) serialSection.style.display = 'none';
-                expirySection.style.display = 'block'; // Still allow expiry date for non-managed items
                 
                 console.log(`ℹ️ Item ${itemCode} is NOT batch/serial managed - standard item`);
             }
@@ -738,13 +735,11 @@ function validateItemCodeFromSAP(itemCode) {
         .catch(error => {
             console.error('Error validating item code from SAP:', error);
             // On error, show all fields to allow manual entry (fallback mode)
-            const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
-            const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+            const batchExpiryRow = document.getElementById('batch_number').closest('.row');
             const serialSection = document.getElementById('serial_section');
             
-            // Show both batch and serial sections for manual entry
-            batchSection.style.display = 'block';
-            expirySection.style.display = 'block';
+            // Show both batch and serial sections for manual entry (use 'flex' to preserve Bootstrap row layout)
+            if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
             if (serialSection) serialSection.style.display = 'block';
             
             console.warn(`⚠️ SAP validation unavailable for ${itemCode} - showing all fields for manual entry`);
@@ -756,12 +751,10 @@ function validateItemCodeFromSAP(itemCode) {
 
 // Hide all batch/serial sections
 function hideBatchSerialSections() {
-    const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
-    const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+    const batchExpiryRow = document.getElementById('batch_number').closest('.row');
     const serialSection = document.getElementById('serial_section');
     
-    batchSection.style.display = 'none';
-    expirySection.style.display = 'none';
+    if (batchExpiryRow) batchExpiryRow.style.display = 'none';
     if (serialSection) serialSection.style.display = 'none';
 }
 
