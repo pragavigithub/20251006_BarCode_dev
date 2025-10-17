@@ -781,9 +781,18 @@ let itemValidationResult = null;
 function handleItemCodeChange() {
     const itemCode = document.getElementById('item_code').value;
     if (itemCode) {
-        // Call SAP validation API to check if item is batch or serial managed
-        validateItemCodeFromSAP(itemCode);
+        // SAP validation disabled - show all fields for manual entry
+        // validateItemCodeFromSAP(itemCode);
+        
+        const batchExpiryRow = document.getElementById('batch_number').closest('.row');
+        const serialSection = document.getElementById('serial_section');
+        
+        // Show batch/expiry fields for manual entry
+        if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
+        if (serialSection) serialSection.style.display = 'none';
+        
         loadCascadingWarehouses();
+        console.log(`Item ${itemCode} entered - all batch/serial fields available for manual entry (SAP validation disabled)`);
     } else {
         // Clear dependent dropdowns when item code is cleared
         document.getElementById('batch_select').innerHTML = '<option value="">Select Batch...</option>';
