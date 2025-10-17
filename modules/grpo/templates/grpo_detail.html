@@ -324,7 +324,7 @@
                 <h5 class="modal-title">Add Item to GRN</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="addItemForm" method="POST" action="{{ url_for('add_grpo_item', grpo_id=grpo_doc.id) }}">
+            <form id="addItemForm" method="POST" action="{{ url_for('add_grpo_item', grpo_id=grpo_doc.id) }}" onsubmit="return prepareSerialDataForSubmit()">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="item_code" class="form-label">Item Code <span class="text-danger">*</span></label>
@@ -407,6 +407,20 @@
                                 <label for="expiration_date" class="form-label">Expiration Date</label>
                                 <input type="date" class="form-control" id="expiration_date" name="expiration_date">
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Serial Number Section (Hidden by default, shown for serial managed items) -->
+                    <div id="serial_section" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i data-feather="hash"></i> Serial Numbers 
+                                <span class="badge bg-info">Required for Serial Managed Items</span>
+                            </label>
+                            <div id="serial_numbers_container" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Serial number inputs will be dynamically generated here -->
+                            </div>
+                            <input type="hidden" id="serial_numbers_json" name="serial_numbers_json">
                         </div>
                     </div>
 
@@ -647,17 +661,193 @@ function loadCascadingBatches() {
         });
 }
 
-// Handle item code change for cascading
+// Global variable to store item validation result
+let itemValidationResult = null;
+
+// Handle item code change for cascading and validation
 function handleItemCodeChange() {
     const itemCode = document.getElementById('item_code').value;
     if (itemCode) {
+        // Call SAP validation API to check if item is batch or serial managed
+        validateItemCodeFromSAP(itemCode);
         loadCascadingWarehouses();
-        loadCascadingBatches();
     } else {
         // Clear dependent dropdowns when item code is cleared
         document.getElementById('batch_select').innerHTML = '<option value="">Select Batch...</option>';
         document.getElementById('batch_select').disabled = true;
+        // Reset batch/serial sections
+        hideBatchSerialSections();
     }
+}
+
+// Validate item code from SAP and show/hide appropriate fields
+function validateItemCodeFromSAP(itemCode) {
+    fetch(`/grpo/validate-item/${itemCode}`)
+        .then(response => response.json())
+        .then(data => {
+            itemValidationResult = data;
+            console.log('Item validation result:', data);
+            
+            // Show/hide fields based on validation
+            const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
+            const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+            const serialSection = document.getElementById('serial_section');
+            
+            if (data.batch_required) {
+                // Show batch fields, hide serial section
+                batchSection.style.display = 'block';
+                expirySection.style.display = 'block';
+                if (serialSection) serialSection.style.display = 'none';
+                
+                // Enable batch selection and load batches
+                document.getElementById('batch_select').disabled = false;
+                loadCascadingBatches();
+                
+                console.log(`✅ Item ${itemCode} is BATCH managed - showing batch fields`);
+            } else if (data.serial_required) {
+                // Show serial section, hide batch fields
+                batchSection.style.display = 'none';
+                expirySection.style.display = 'none';
+                if (serialSection) {
+                    serialSection.style.display = 'block';
+                    // Initialize serial number inputs based on quantity
+                    initializeSerialInputs();
+                }
+                
+                console.log(`✅ Item ${itemCode} is SERIAL managed - showing serial fields`);
+            } else {
+                // Neither batch nor serial - hide both
+                batchSection.style.display = 'none';
+                if (serialSection) serialSection.style.display = 'none';
+                expirySection.style.display = 'block'; // Still allow expiry date for non-managed items
+                
+                console.log(`ℹ️ Item ${itemCode} is NOT batch/serial managed - standard item`);
+            }
+        })
+        .catch(error => {
+            console.error('Error validating item code:', error);
+            // On error, show all fields to allow manual entry
+            const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
+            const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+            batchSection.style.display = 'block';
+            expirySection.style.display = 'block';
+        });
+}
+
+// Hide all batch/serial sections
+function hideBatchSerialSections() {
+    const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
+    const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+    const serialSection = document.getElementById('serial_section');
+    
+    batchSection.style.display = 'none';
+    expirySection.style.display = 'none';
+    if (serialSection) serialSection.style.display = 'none';
+}
+
+// Initialize serial number inputs based on quantity
+function initializeSerialInputs() {
+    const quantity = parseInt(document.getElementById('quantity').value) || 0;
+    const serialContainer = document.getElementById('serial_numbers_container');
+    
+    if (!serialContainer) return;
+    
+    // Clear existing inputs
+    serialContainer.innerHTML = '';
+    
+    if (quantity > 0 && quantity <= 100) { // Limit to 100 serials for UI performance
+        for (let i = 0; i < quantity; i++) {
+            const serialDiv = document.createElement('div');
+            serialDiv.className = 'mb-2';
+            serialDiv.innerHTML = `
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">#${i + 1}</span>
+                    <input type="text" class="form-control serial-input" 
+                           placeholder="Enter serial number ${i + 1}" 
+                           data-serial-index="${i}"
+                           required>
+                    <button class="btn btn-outline-secondary" type="button" 
+                            onclick="generateSerialBarcode(${i})" 
+                            title="Generate barcode">
+                        <i data-feather="maximize-2"></i>
+                    </button>
+                </div>
+            `;
+            serialContainer.appendChild(serialDiv);
+        }
+        
+        // Reinitialize feather icons
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+        
+        console.log(`Generated ${quantity} serial number inputs`);
+    } else if (quantity > 100) {
+        serialContainer.innerHTML = '<div class="alert alert-warning">Quantity too large for individual serial entry. Please use bulk upload.</div>';
+    }
+}
+
+// Generate barcode for specific serial number
+function generateSerialBarcode(index) {
+    const serialInput = document.querySelector(`input[data-serial-index="${index}"]`);
+    if (!serialInput || !serialInput.value) {
+        alert('Please enter a serial number first');
+        return;
+    }
+    
+    const itemCode = document.getElementById('item_code').value;
+    const serialNumber = serialInput.value;
+    
+    // Generate barcode data
+    const barcodeData = `SN:${itemCode}-${serialNumber}`;
+    
+    // Show barcode preview (you can enhance this with QR code generation)
+    alert(`Barcode generated for Serial: ${serialNumber}\nData: ${barcodeData}`);
+    console.log(`Generated barcode for serial ${index}: ${barcodeData}`);
+}
+
+// Update quantity field listener to reinitialize serial inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInput = document.getElementById('quantity');
+    if (quantityInput) {
+        quantityInput.addEventListener('change', function() {
+            if (itemValidationResult && itemValidationResult.serial_required) {
+                initializeSerialInputs();
+            }
+        });
+    }
+});
+
+// Prepare serial data for form submission
+function prepareSerialDataForSubmit() {
+    if (!itemValidationResult || !itemValidationResult.serial_required) {
+        return true; // Not a serial item, proceed normally
+    }
+    
+    const serialInputs = document.querySelectorAll('.serial-input');
+    const serialNumbers = [];
+    
+    for (let input of serialInputs) {
+        if (!input.value.trim()) {
+            alert(`Please enter serial number #${parseInt(input.getAttribute('data-serial-index')) + 1}`);
+            input.focus();
+            return false; // Prevent form submission
+        }
+        
+        serialNumbers.push({
+            internal_serial_number: input.value.trim(),
+            manufacturer_serial_number: input.value.trim(), // Can be modified if you have separate field
+            expiry_date: null,
+            manufacture_date: null,
+            notes: ''
+        });
+    }
+    
+    // Store serial numbers as JSON in hidden field
+    document.getElementById('serial_numbers_json').value = JSON.stringify(serialNumbers);
+    
+    console.log('Serial numbers prepared for submission:', serialNumbers);
+    return true; // Allow form submission
 }
 
 // Show add item modal

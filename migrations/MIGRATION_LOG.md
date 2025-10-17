@@ -105,6 +105,48 @@ Add new migrations below in reverse chronological order (newest first).
 
 ---
 
+### 2025-10-17 - GRPO Dynamic Batch/Serial Field UI Enhancement
+- **File**: `modules/grpo/templates/grpo_detail.html`
+- **Description**: Enhanced GRPO module with dynamic batch/serial number field management based on SAP item validation
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - **Dynamic Field Control**:
+    - Added JavaScript function `validateItemCodeFromSAP()` to fetch item validation from SAP B1
+    - Implemented automatic show/hide logic for Batch Number vs Serial Number fields
+    - Fields now dynamically enable based on SAP ItemCode validation response (BatchNum='Y' or SerialNum='Y')
+  - **Serial Number Management**:
+    - Added `serial_section` container with dynamic serial number input generation
+    - Serial inputs automatically generated based on received quantity (up to 100 items)
+    - Each serial number input includes barcode generation capability
+    - Added `prepareSerialDataForSubmit()` function to collect serial data as JSON before form submission
+  - **Batch Number Management**:
+    - Batch fields shown only when item is batch-managed (BatchNum='Y')
+    - Expiration date field linked to batch selection
+  - **Barcode Generation**:
+    - Automatic barcode generation for each serial number with format `SN:{ItemCode}-{SerialNumber}`
+    - Visual barcode preview for individual serial entries
+  - **Validation**:
+    - Client-side validation ensures all serial numbers are entered before submission
+    - Serial data stored in hidden field `serial_numbers_json` as JSON array
+    - Backend validates serial count matches received quantity
+- **API Integration**:
+  - Uses existing `/grpo/validate-item/<item_code>` endpoint to fetch item management type
+  - Response fields: `batch_required`, `serial_required`, `manage_method`
+  - Integrates with SAP B1 SQL Query 'ItemCode_Batch_Serial_Val'
+- **User Experience**:
+  - Clean, intuitive interface showing only relevant fields
+  - No manual dropdown switching - fields appear automatically
+  - Quantity change triggers serial input regeneration
+  - Supports up to 100 serial numbers via UI (with bulk upload fallback for larger quantities)
+- **Database Impact**: No schema changes - uses existing `grpo_serial_numbers` and `grpo_batch_numbers` tables
+- **Notes**: 
+  - Frontend-only enhancement, no backend route changes required
+  - Compatible with existing GRPO workflow and SAP B1 posting logic
+  - Improves data entry efficiency for warehouse operators
+
+---
+
 ### 2025-10-15 - GRPO Item Validation Fields (Batch/Serial Requirements)
 - **File**: `mysql_grpo_item_validation_migration.py`
 - **Description**: Added ItemCode validation fields to GRPO items for batch and serial number management
