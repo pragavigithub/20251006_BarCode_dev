@@ -11,7 +11,10 @@ The system is built on a Flask web application backend, utilizing Jinja2 for ser
 
 **Key Features:**
 *   **User Management:** Comprehensive authentication, role-based access, and self-service profile management. Deactivation replaces deletion for audit trails.
-*   **GRPO Management:** Includes standard Goods Receipt PO processing and a new module for batch creation of multiple GRNs from multiple Purchase Orders via a 5-step workflow with SAP B1 integration.
+*   **GRPO Management:** Includes standard Goods Receipt PO processing with intelligent batch/serial field management and a new module for batch creation of multiple GRNs from multiple Purchase Orders via a 5-step workflow with SAP B1 integration.
+    *   **Dynamic Batch/Serial Detection (NEW):** Automatically validates item codes against SAP B1 to determine if items are batch-managed or serial-managed, showing only relevant input fields
+    *   **Serial Number Entry:** For serial-managed items, dynamically generates individual serial number inputs based on received quantity with automatic barcode generation
+    *   **Batch Number Entry:** For batch-managed items, enables batch number selection with expiration date tracking
 *   **Inventory Transfer:** Enhanced module for creating inventory transfer requests with document series selection and validation against SAP B1.
 *   **Pick List Management:** Generation and processing of pick lists.
 *   **Barcode Scanning:** Integrated camera-based scanning for various modules (GRPO, Bin Scanning, Pick List, Inventory Transfer, Barcode Reprint), requiring HTTPS for local development.
