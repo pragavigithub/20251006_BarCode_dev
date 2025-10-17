@@ -552,8 +552,16 @@ function addItemToGRPO(itemCode, itemName, uom, warehouseCode, poItemData) {
     document.getElementById('warehouse_code').value = selectedPoItemData.warehouseCode;
     document.getElementById('bin_location').value = selectedPoItemData.warehouseCode + '-BIN-01';
 
+    // Hide batch/serial sections initially
+    hideBatchSerialSections();
+
     // Load warehouses on modal open
     loadWarehouses();
+
+    // Validate item code to show appropriate batch/serial fields
+    if (itemCode) {
+        validateItemCodeFromSAP(itemCode);
+    }
 
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('addItemModal'));
@@ -687,13 +695,16 @@ function validateItemCodeFromSAP(itemCode) {
         .then(data => {
             itemValidationResult = data;
             console.log('Item validation result:', data);
+            console.log('batch_required value:', data.batch_required, 'type:', typeof data.batch_required);
+            console.log('serial_required value:', data.serial_required, 'type:', typeof data.serial_required);
             
             // Show/hide fields based on validation
             const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
             const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
             const serialSection = document.getElementById('serial_section');
             
-            if (data.batch_required) {
+            // Explicit boolean check - only show batch if batch_required is explicitly true
+            if (data.batch_required === true) {
                 // Show batch fields, hide serial section
                 batchSection.style.display = 'block';
                 expirySection.style.display = 'block';
@@ -704,7 +715,7 @@ function validateItemCodeFromSAP(itemCode) {
                 loadCascadingBatches();
                 
                 console.log(`✅ Item ${itemCode} is BATCH managed - showing batch fields`);
-            } else if (data.serial_required) {
+            } else if (data.serial_required === true) {
                 // Show serial section, hide batch fields
                 batchSection.style.display = 'none';
                 expirySection.style.display = 'none';
@@ -725,12 +736,21 @@ function validateItemCodeFromSAP(itemCode) {
             }
         })
         .catch(error => {
-            console.error('Error validating item code:', error);
-            // On error, show all fields to allow manual entry
+            console.error('Error validating item code from SAP:', error);
+            // On error, show all fields to allow manual entry (fallback mode)
             const batchSection = document.getElementById('batch_number').closest('.mb-3').parentElement;
             const expirySection = document.getElementById('expiration_date').closest('.mb-3').parentElement;
+            const serialSection = document.getElementById('serial_section');
+            
+            // Show both batch and serial sections for manual entry
             batchSection.style.display = 'block';
             expirySection.style.display = 'block';
+            if (serialSection) serialSection.style.display = 'block';
+            
+            console.warn(`⚠️ SAP validation unavailable for ${itemCode} - showing all fields for manual entry`);
+            
+            // Optional: Show user-visible warning
+            alert(`⚠️ Unable to validate item from SAP. All batch/serial fields are now available for manual entry.\n\nPlease verify the item requirements manually.`);
         });
 }
 
@@ -872,6 +892,9 @@ function showAddItemModal() {
     // Disable dependent dropdowns
     document.getElementById('bin_select').disabled = true;
     document.getElementById('batch_select').disabled = true;
+
+    // Hide batch/serial sections by default - will be shown after validation
+    hideBatchSerialSections();
 
     // Load initial data
     loadCascadingWarehouses();
