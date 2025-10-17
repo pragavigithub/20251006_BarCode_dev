@@ -3,8 +3,11 @@
 ## Overview
 A Flask-based Warehouse Management System (WMS) designed to streamline inventory operations. It features seamless integration with SAP for core functionalities like barcode scanning, goods receipt, pick list generation, and inventory transfers. The system aims to enhance efficiency, accuracy, and control over warehouse logistics. The project envisions a future where warehouse operations are fully digitized, minimizing manual errors and maximizing throughput, potentially serving as a model for small to medium-sized enterprises.
 
+## Recent Changes
+*   **2025-10-17**: Enhanced GRPO "Add Item to GRN" UI logic to properly hide batch number and expiration date fields when item is serial-managed. Updated JavaScript validation to target the entire batch/expiration row for consistent visibility toggling between batch and serial fields.
+
 ## User Preferences
-None specified yet
+*   Keep MySQL migration files updated when database schema changes occur
 
 ## System Architecture
 The system is built on a Flask web application backend, utilizing Jinja2 for server-side rendering. A core architectural decision is the deep integration with the SAP B1 Service Layer API for all critical warehouse operations, ensuring data consistency and real-time updates. SQLite serves as a fallback database, while PostgreSQL is the primary target for cloud deployments. User authentication uses Flask-Login with robust role-based access control. The application is designed for production deployment using Gunicorn with autoscale capabilities.
