@@ -5,6 +5,7 @@ A Flask-based Warehouse Management System (WMS) designed to streamline inventory
 
 ## Recent Changes
 *   **2025-10-17**: Enhanced GRPO "Add Item to GRN" UI logic to properly hide batch number and expiration date fields when item is serial-managed. Updated JavaScript validation to target the entire batch/expiration row for consistent visibility toggling between batch and serial fields.
+*   **2025-10-17**: Added barcode generation functionality for batch numbers in GRPO module. Batch-managed items now have a "Generate Barcode" button that creates QR codes with the format "BATCH:{itemCode}-{batchNumber}" and includes print functionality.
 
 ## User Preferences
 *   Keep MySQL migration files updated when database schema changes occur
