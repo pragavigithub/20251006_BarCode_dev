@@ -6,9 +6,9 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
-            <h1>Goods Receipt PO (GRPO)</h1>
+            <h1>Goods Received Note (GRN)</h1>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGRPOModal">
-                <i data-feather="plus"></i> Create GRPO
+                <i data-feather="plus"></i> Create GRN
             </button>
         </div>
     </div>
@@ -19,7 +19,57 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">GRPO Documents</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">GRN Documents</h5>
+                    <!-- Search Form -->
+
+                    <form id="searchForm" class="d-flex" method="GET" action="{{ url_for('grpo') }}">
+    <input type="hidden" name="per_page" value="{{ per_page }}">
+    <input id="searchInput" class="form-control form-control-sm me-2"
+           type="search" name="search" placeholder="Search GRN..."
+           aria-label="Search" value="{{ search_term or '' }}" style="width: 250px;">
+    {% if search_term %}
+    <a href="{{ url_for('grpo', per_page=per_page) }}" class="btn btn-outline-secondary btn-sm ms-1">
+        <i data-feather="x"></i>
+    </a>
+    {% endif %}
+</form>
+<!--                    <form class="d-flex" method="GET" action="{{ url_for('grpo') }}">-->
+<!--                        <input type="hidden" name="per_page" value="{{ per_page }}">-->
+<!--                        <input class="form-control form-control-sm me-2" type="search" name="search"-->
+<!--                               placeholder="Search GRN..." aria-label="Search" -->
+<!--                               value="{{ search_term or '' }}" style="width: 250px;">-->
+<!--                        <button class="btn btn-outline-secondary btn-sm" type="submit">-->
+<!--                            <i data-feather="search"></i>-->
+<!--                        </button>-->
+<!--                        {% if search_term %}-->
+<!--                        <a href="{{ url_for('grpo', per_page=per_page) }}" class="btn btn-outline-secondary btn-sm ms-1">-->
+<!--                            <i data-feather="x"></i>-->
+<!--                        </a>-->
+<!--                        {% endif %}-->
+<!--                    </form>-->
+                </div>
+                <!-- Rows per page selector -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <label for="rowsPerPage" class="form-label mb-0 me-2">Rows per page:</label>
+                        <select id="rowsPerPage" class="form-select form-select-sm" style="width: auto;"
+                                onchange="changeRowsPerPage(this.value)">
+                            <option value="5" {{ 'selected' if per_page == 5 else '' }}>5</option>
+                            <option value="10" {{ 'selected' if per_page == 10 else '' }}>10</option>
+                            <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
+                            <option value="50" {{ 'selected' if per_page == 50 else '' }}>50</option>
+                            <option value="100" {{ 'selected' if per_page == 100 else '' }}>100</option>
+                        </select>
+                    </div>
+                    {% if pagination %}
+                    <small class="text-muted">
+                        Showing {{ ((pagination.page - 1) * pagination.per_page + 1) }} to 
+                        {{ ((pagination.page - 1) * pagination.per_page + documents|length) }} 
+                        of {{ pagination.total }} items
+                    </small>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
                 {% if documents %}
@@ -27,7 +77,7 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>GRPO ID</th>
+                                <th>GRN ID</th>
                                 <th>PO Number</th>
                                 <th>Status</th>
                                 <th>SAP Document</th>
@@ -61,11 +111,71 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Pagination -->
+                {% if pagination and pagination.pages > 1 %}
+                <nav aria-label="GRN Documents pagination" class="mt-3">
+                    <ul class="pagination pagination-sm justify-content-center">
+                        <!-- Previous Page -->
+                        {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('grpo', page=pagination.prev_num, search=search_term, per_page=per_page) }}">
+                                    <i data-feather="chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i data-feather="chevron-left"></i></span>
+                            </li>
+                        {% endif %}
+
+                        <!-- Page Numbers -->
+                        {% for page_num in pagination.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != pagination.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('grpo', page=page_num, search=search_term, per_page=per_page) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        <!-- Next Page -->
+                        {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('grpo', page=pagination.next_num, search=search_term, per_page=per_page) }}">
+                                    <i data-feather="chevron-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i data-feather="chevron-right"></i></span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+
+                {% endif %}
+
                 {% else %}
                 <div class="text-center py-4">
                     <i data-feather="package" style="width: 48px; height: 48px;" class="text-muted mb-3"></i>
-                    <h5>No GRPO Documents</h5>
-                    <p class="text-muted">Create your first GRPO document to get started.</p>
+                    {% if search_term %}
+                        <h5>No Results Found</h5>
+                        <p class="text-muted">No GRN documents match your search for "{{ search_term }}"</p>
+                        <a href="{{ url_for('grpo', per_page=per_page) }}" class="btn btn-outline-secondary">Clear Search</a>
+                    {% else %}
+                        <h5>No GRPO Documents</h5>
+                        <p class="text-muted">Create your first GRPO document to get started.</p>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -78,19 +188,28 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createGRPOModalLabel">Create GRPO</h5>
+                <h5 class="modal-title" id="createGRPOModalLabel">Create GRN</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('create_grpo') }}">
+            <form method="POST" action="{{ url_for('create_grpo') }}" id="createGRPOForm">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="po_number" class="form-label">PO Number</label>
+                        <label for="po_series" class="form-label">PO Series</label>
+                        <select class="form-select" id="po_series" name="po_series" required>
+                            <option value="">Select Series</option>
+                        </select>
+                        <small class="text-muted">Select the purchase order series</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="po_number" class="form-label">PO Document Number</label>
                         <div class="input-group">
                             <input type="text" class="form-control" id="po_number" name="po_number" required>
                             <button class="btn btn-outline-secondary" type="button" onclick="scanPO()">
                                 <i data-feather="camera"></i> Scan
                             </button>
                         </div>
+                        <small class="text-muted">Enter the document number</small>
                     </div>
                     
                     <div class="scanner-container" id="poScannerContainer" style="display: none;">
@@ -99,10 +218,12 @@
                     </div>
                     
                     <div id="poValidationResult" style="display: none;"></div>
+                    
+                    <input type="hidden" id="doc_entry" name="doc_entry" value="">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create GRPO</button>
+                    <button type="submit" class="btn btn-primary" id="createGRPOBtn">Create GRN</button>
                 </div>
             </form>
         </div>
@@ -112,6 +233,13 @@
 
 {% block scripts %}
 <script>
+function changeRowsPerPage(perPage) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('per_page', perPage);
+    urlParams.delete('page');  // Reset to first page when changing rows per page
+    window.location.href = '{{ url_for("grpo") }}?' + urlParams.toString();
+}
+
 function scanPO() {
     const container = document.getElementById('poScannerContainer');
     const video = document.getElementById('poScanVideo');
@@ -127,6 +255,14 @@ function scanPO() {
         validatePO(code);
     });
 }
+
+document.getElementById('searchInput').addEventListener('input', function () {
+    const form = document.getElementById('searchForm');
+    clearTimeout(window._grpoSearchTimeout);
+    window._grpoSearchTimeout = setTimeout(() => {
+        form.submit();
+    }, 500); // Delay in milliseconds to prevent submitting too quickly
+});
 
 async function validatePO(poNumber) {
     try {
@@ -175,5 +311,85 @@ document.getElementById('createGRPOModal').addEventListener('hidden.bs.modal', f
     stopBarcodeScanner();
     document.getElementById('poScannerContainer').style.display = 'none';
 });
+
+document.getElementById('createGRPOModal').addEventListener('shown.bs.modal', function () {
+    loadPOSeries();
+});
+
+function loadPOSeries() {
+    fetch('/api/get-po-series')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.series) {
+                const seriesSelect = document.getElementById('po_series');
+                seriesSelect.innerHTML = '<option value="">Select Series</option>';
+                
+                data.series.forEach(series => {
+                    const option = document.createElement('option');
+                    option.value = series.Series;
+                    option.textContent = `${series.SeriesName} (${series.Series})`;
+                    seriesSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading PO series:', error);
+        });
+}
+
+document.getElementById('po_number').addEventListener('blur', function() {
+    const series = document.getElementById('po_series').value;
+    const docNum = this.value;
+    
+    if (series && docNum) {
+        getDocEntry(series, docNum);
+    }
+});
+
+document.getElementById('po_series').addEventListener('change', function() {
+    const series = this.value;
+    const docNum = document.getElementById('po_number').value;
+    
+    if (series && docNum) {
+        getDocEntry(series, docNum);
+    }
+});
+
+function getDocEntry(series, docNum) {
+    fetch('/api/get-doc-entry', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            series: series,
+            doc_num: docNum
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.doc_entry) {
+            document.getElementById('doc_entry').value = data.doc_entry;
+            document.getElementById('poValidationResult').innerHTML = 
+                '<div class="alert alert-success"><i data-feather="check-circle"></i> PO found! DocEntry: ' + data.doc_entry + '</div>';
+            document.getElementById('poValidationResult').style.display = 'block';
+            feather.replace();
+        } else {
+            document.getElementById('doc_entry').value = '';
+            document.getElementById('poValidationResult').innerHTML = 
+                '<div class="alert alert-danger"><i data-feather="x-circle"></i> PO not found. Please check series and document number.</div>';
+            document.getElementById('poValidationResult').style.display = 'block';
+            feather.replace();
+        }
+    })
+    .catch(error => {
+        console.error('Error getting DocEntry:', error);
+        document.getElementById('doc_entry').value = '';
+        document.getElementById('poValidationResult').innerHTML = 
+            '<div class="alert alert-danger"><i data-feather="x-circle"></i> Error validating PO. Please try again.</div>';
+        document.getElementById('poValidationResult').style.display = 'block';
+        feather.replace();
+    });
+}
 </script>
 {% endblock %}
