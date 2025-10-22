@@ -469,13 +469,23 @@ def validate_item_code(item_code):
 def generate_barcode(data):
     """Generate QR code barcode and return base64 encoded image"""
     try:
+        if not data or len(str(data).strip()) == 0:
+            logging.warning("⚠️ Empty data provided for barcode generation")
+            return None
+        
+        # Limit data length to prevent overly complex QR codes
+        data_str = str(data).strip()
+        if len(data_str) > 500:
+            logging.warning(f"⚠️ Barcode data too long ({len(data_str)} chars), truncating to 500")
+            data_str = data_str[:500]
+        
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=10,
             border=4,
         )
-        qr.add_data(data)
+        qr.add_data(data_str)
         qr.make(fit=True)
         
         img = qr.make_image(fill_color="black", back_color="white")
@@ -486,9 +496,14 @@ def generate_barcode(data):
         buffer.seek(0)
         img_base64 = base64.b64encode(buffer.getvalue()).decode()
         
+        # Limit base64 size (typical QR code should be < 10KB)
+        if len(img_base64) > 100000:  # ~75KB limit
+            logging.warning(f"⚠️ Generated barcode too large ({len(img_base64)} bytes), skipping")
+            return None
+        
         return f"data:image/png;base64,{img_base64}"
     except Exception as e:
-        logging.error(f"Error generating barcode: {str(e)}")
+        logging.error(f"❌ Error generating barcode for data '{str(data)[:50]}...': {str(e)}")
         return None
 
 @grpo_bp.route('/items/<int:item_id>/serial-numbers', methods=['GET', 'POST'])
@@ -534,26 +549,40 @@ def manage_serial_numbers(item_id):
                 }), 400
             
             # Generate barcode
-            barcode_data = f"SN:{data['internal_serial_number']}"
-            barcode = generate_barcode(barcode_data)
+            internal_sn = data.get('internal_serial_number', '').strip()
+            if not internal_sn:
+                return jsonify({
+                    'success': False,
+                    'error': 'Internal serial number is required'
+                }), 400
+            
+            barcode_data = f"SN:{internal_sn}"
+            try:
+                barcode = generate_barcode(barcode_data)
+                if not barcode:
+                    logging.warning(f"⚠️ Barcode generation failed for serial: {internal_sn}, continuing without barcode")
+                    barcode = None
+            except Exception as barcode_error:
+                logging.error(f"❌ Barcode generation error for {internal_sn}: {str(barcode_error)}")
+                barcode = None
             
             # Create serial number entry
             serial = GRPOSerialNumber(
                 grpo_item_id=item_id,
-                manufacturer_serial_number=data.get('manufacturer_serial_number'),
-                internal_serial_number=data['internal_serial_number'],
+                manufacturer_serial_number=data.get('manufacturer_serial_number', '').strip() or None,
+                internal_serial_number=internal_sn,
                 expiry_date=datetime.strptime(data['expiry_date'], '%Y-%m-%d').date() if data.get('expiry_date') else None,
                 manufacture_date=datetime.strptime(data['manufacture_date'], '%Y-%m-%d').date() if data.get('manufacture_date') else None,
-                notes=data.get('notes'),
+                notes=data.get('notes', '').strip() or None,
                 barcode=barcode,
-                quantity=data.get('quantity', 1.0),
-                base_line_number=data.get('base_line_number', 0)
+                quantity=float(data.get('quantity', 1.0)),
+                base_line_number=int(data.get('base_line_number', 0))
             )
             
             db.session.add(serial)
             db.session.commit()
             
-            logging.info(f"✅ Serial number {data['internal_serial_number']} added to item {item_id}")
+            logging.info(f"✅ Serial number {internal_sn} added to item {item_id}{' (no barcode)' if not barcode else ''}")
             
             return jsonify({
                 'success': True,
@@ -626,18 +655,40 @@ def manage_batch_numbers(item_id):
         try:
             data = request.json
             
+            # Validate batch number
+            batch_num = data.get('batch_number', '').strip()
+            if not batch_num:
+                return jsonify({
+                    'success': False,
+                    'error': 'Batch number is required'
+                }), 400
+            
+            quantity = float(data.get('quantity', 0))
+            if quantity <= 0:
+                return jsonify({
+                    'success': False,
+                    'error': 'Quantity must be greater than 0'
+                }), 400
+            
             # Generate barcode
-            barcode_data = f"BATCH:{data['batch_number']}"
-            barcode = generate_barcode(barcode_data)
+            barcode_data = f"BATCH:{batch_num}"
+            try:
+                barcode = generate_barcode(barcode_data)
+                if not barcode:
+                    logging.warning(f"⚠️ Barcode generation failed for batch: {batch_num}, continuing without barcode")
+                    barcode = None
+            except Exception as barcode_error:
+                logging.error(f"❌ Barcode generation error for batch {batch_num}: {str(barcode_error)}")
+                barcode = None
             
             # Create batch number entry
             batch = GRPOBatchNumber(
                 grpo_item_id=item_id,
-                batch_number=data['batch_number'],
-                quantity=data['quantity'],
-                base_line_number=data.get('base_line_number', 0),
-                manufacturer_serial_number=data.get('manufacturer_serial_number'),
-                internal_serial_number=data.get('internal_serial_number'),
+                batch_number=batch_num,
+                quantity=quantity,
+                base_line_number=int(data.get('base_line_number', 0)),
+                manufacturer_serial_number=data.get('manufacturer_serial_number', '').strip() or None,
+                internal_serial_number=data.get('internal_serial_number', '').strip() or None,
                 expiry_date=datetime.strptime(data['expiry_date'], '%Y-%m-%d').date() if data.get('expiry_date') else None,
                 barcode=barcode
             )
@@ -645,7 +696,7 @@ def manage_batch_numbers(item_id):
             db.session.add(batch)
             db.session.commit()
             
-            logging.info(f"✅ Batch number {data['batch_number']} added to item {item_id}")
+            logging.info(f"✅ Batch number {batch_num} (qty: {quantity}) added to item {item_id}{' (no barcode)' if not barcode else ''}")
             
             return jsonify({
                 'success': True,
