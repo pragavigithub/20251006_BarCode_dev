@@ -24,8 +24,8 @@ def index():
         flash('Access denied - GRPO permissions required', 'error')
         return redirect(url_for('dashboard'))
     
-    grpos = GRPODocument.query.filter_by(user_id=current_user.id).order_by(GRPODocument.created_at.desc()).all()
-    return render_template('grpo/grpo.html', grpos=grpos)
+    documents = GRPODocument.query.filter_by(user_id=current_user.id).order_by(GRPODocument.created_at.desc()).all()
+    return render_template('grpo/grpo.html', documents=documents, per_page=10, search_term='', pagination=None)
 
 @grpo_bp.route('/detail/<int:grpo_id>')
 @login_required
