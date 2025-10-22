@@ -1728,7 +1728,7 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
         })
         .catch(error => {
             console.error('Error fetching serial numbers:', error);
-            alert('Error loading serial numbers');
+            alert(`Error loading serial numbers: ${error.message}\n\nPlease check:\n1. Item has serial numbers saved\n2. You are logged in\n3. Check browser console for details`);
         });
 }
 
@@ -1781,7 +1781,7 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
         })
         .catch(error => {
             console.error('Error fetching batch numbers:', error);
-            alert('Error loading batch numbers');
+            alert(`Error loading batch numbers: ${error.message}\n\nPlease check:\n1. Item has batch numbers saved\n2. You are logged in\n3. Check browser console for details`);
         });
 }
 
