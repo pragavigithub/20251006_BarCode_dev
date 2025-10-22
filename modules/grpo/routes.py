@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from app import db
 from modules.grpo.models import GRPODocument, GRPOItem, GRPOSerialNumber, GRPOBatchNumber
 from models import User
+from sap_integration import SAPIntegration
 import logging
 from datetime import datetime
 import qrcode
@@ -61,9 +62,25 @@ def create():
             flash(f'GRPO already exists for PO {po_number}', 'warning')
             return redirect(url_for('grpo.detail', grpo_id=existing_grpo.id))
         
-        # Create new GRPO
+        # Fetch PO details from SAP to get supplier information
+        sap = SAPIntegration()
+        po_data = sap.get_purchase_order(po_number)
+        
+        supplier_code = None
+        supplier_name = None
+        
+        if po_data:
+            supplier_code = po_data.get('CardCode')
+            supplier_name = po_data.get('CardName')
+            logging.info(f"📋 PO {po_number} - Supplier: {supplier_name} ({supplier_code})")
+        else:
+            logging.warning(f"⚠️ Could not fetch PO details from SAP for PO {po_number}")
+        
+        # Create new GRPO with supplier details
         grpo = GRPODocument(
             po_number=po_number,
+            supplier_code=supplier_code,
+            supplier_name=supplier_name,
             user_id=current_user.id,
             status='draft'
         )
