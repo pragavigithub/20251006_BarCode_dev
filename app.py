@@ -94,6 +94,7 @@ app.config['SAP_B1_COMPANY_DB'] = os.environ.get('SAP_B1_COMPANY_DB',
 # Import models after app is configured to avoid circular imports
 import models
 import models_extensions
+from modules.grpo import models as grpo_models
 from modules.multi_grn_creation import models as multi_grn_models
 
 with app.app_context():
