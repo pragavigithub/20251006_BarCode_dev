@@ -746,6 +746,10 @@ def dashboard():
 @app.route('/grpo')
 @login_required
 def grpo():
+    # REDIRECT TO NEW MODULAR GRPO ROUTES (modules/grpo/routes.py)
+    return redirect(url_for('grpo.index'))
+    
+    # OLD CODE BELOW - DISABLED, keeping for reference
     # Screen-level authorization check
     if not current_user.has_permission('grpo'):
         flash('Access denied. You do not have permission to access GRPO screen.', 'error')
@@ -889,6 +893,10 @@ def create_grpo():
 @app.route('/grpo/<int:grpo_id>')
 @login_required
 def grpo_detail(grpo_id):
+    # REDIRECT TO NEW MODULAR GRPO ROUTES (modules/grpo/routes.py)
+    return redirect(url_for('grpo.detail', grpo_id=grpo_id))
+    
+    # OLD CODE BELOW - DISABLED, keeping for reference
     try:
         grpo_doc = GRPODocument.query.get_or_404(grpo_id)
         
