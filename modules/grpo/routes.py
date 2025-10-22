@@ -496,6 +496,70 @@ def validate_item_code(item_code):
             'manage_method': 'N'
         }), 500
 
+@grpo_bp.route('/items/<int:item_id>/serial-numbers', methods=['GET'])
+@login_required
+def get_serial_numbers(item_id):
+    """Get all serial numbers for a GRPO item"""
+    try:
+        item = GRPOItem.query.get_or_404(item_id)
+        grpo = item.grpo_document
+        
+        if grpo.user_id != current_user.id and current_user.role not in ['admin', 'manager', 'qc']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        serial_numbers = []
+        for serial in item.serial_numbers:
+            serial_numbers.append({
+                'id': serial.id,
+                'internal_serial_number': serial.internal_serial_number,
+                'manufacturer_serial_number': serial.manufacturer_serial_number,
+                'expiry_date': serial.expiry_date.strftime('%Y-%m-%d') if serial.expiry_date else None,
+                'manufacture_date': serial.manufacture_date.strftime('%Y-%m-%d') if serial.manufacture_date else None,
+                'notes': serial.notes
+            })
+        
+        return jsonify({
+            'success': True,
+            'serial_numbers': serial_numbers,
+            'count': len(serial_numbers)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error fetching serial numbers: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/items/<int:item_id>/batch-numbers', methods=['GET'])
+@login_required
+def get_batch_numbers(item_id):
+    """Get all batch numbers for a GRPO item"""
+    try:
+        item = GRPOItem.query.get_or_404(item_id)
+        grpo = item.grpo_document
+        
+        if grpo.user_id != current_user.id and current_user.role not in ['admin', 'manager', 'qc']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        batch_numbers = []
+        for batch in item.batch_numbers:
+            batch_numbers.append({
+                'id': batch.id,
+                'batch_number': batch.batch_number,
+                'quantity': float(batch.quantity),
+                'expiry_date': batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else None,
+                'manufacturer_serial_number': batch.manufacturer_serial_number,
+                'internal_serial_number': batch.internal_serial_number
+            })
+        
+        return jsonify({
+            'success': True,
+            'batch_numbers': batch_numbers,
+            'count': len(batch_numbers)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error fetching batch numbers: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 def generate_barcode(data):
     """Generate QR code barcode and return base64 encoded image"""
     try:

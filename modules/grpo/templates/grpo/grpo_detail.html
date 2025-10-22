@@ -242,15 +242,17 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if grpo_doc.status in ['draft', 'rejected'] %}
-                                        <div class="btn-group">
-                                            <button class="btn btn-sm btn-success" onclick="generateQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ grpo_doc.id }}, '{{ grpo_doc.po_number }}')">
-                                                <i data-feather="maximize"></i> QR Label
-                                            </button>
-                                        </div>
+                                        {% if item.serial_numbers %}
+                                        <button class="btn btn-sm btn-primary" onclick="generateSerialQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                            <i data-feather="printer"></i> Print {{ item.serial_numbers|length }} QR Labels
+                                        </button>
+                                        {% elif item.batch_numbers %}
+                                        <button class="btn btn-sm btn-info" onclick="generateBatchQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                            <i data-feather="printer"></i> Print Batch Labels
+                                        </button>
                                         {% else %}
                                         <button class="btn btn-sm btn-success" onclick="generateQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ grpo_doc.id }}, '{{ grpo_doc.po_number }}')">
-                                            <i data-feather="maximize"></i> Print QR Label
+                                            <i data-feather="maximize"></i> QR Label
                                         </button>
                                         {% endif %}
                                     </td>
@@ -1677,6 +1679,172 @@ function printQRLabel() {
     }, 500);
 }
 
+// Generate QR labels for all serial numbers
+function generateSerialQRLabels(itemId, itemCode, itemName) {
+    fetch(`/grpo/items/${itemId}/serial-numbers`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success || !data.serial_numbers || data.serial_numbers.length === 0) {
+                alert('No serial numbers found for this item');
+                return;
+            }
+            
+            const serialNumbers = data.serial_numbers;
+            const modal = new bootstrap.Modal(document.getElementById('serialQRLabelsModal'));
+            const container = document.getElementById('serialQRLabelsContainer');
+            container.innerHTML = '';
+            
+            serialNumbers.forEach((serial, index) => {
+                const qrDiv = document.createElement('div');
+                qrDiv.className = 'qr-label-item';
+                qrDiv.innerHTML = `
+                    <div class="text-center p-3 border rounded mb-3">
+                        <h6>${itemCode} - ${itemName}</h6>
+                        <div id="qr-serial-${index}" class="qr-code-canvas mb-2"></div>
+                        <p class="mb-1"><strong>Serial: ${serial.internal_serial_number}</strong></p>
+                        ${serial.manufacturer_serial_number ? `<p class="mb-1">MFG: ${serial.manufacturer_serial_number}</p>` : ''}
+                        ${serial.expiry_date ? `<p class="mb-0">Expiry: ${serial.expiry_date}</p>` : ''}
+                    </div>
+                `;
+                container.appendChild(qrDiv);
+                
+                const qrData = `SN:${itemCode}|${serial.internal_serial_number}|${serial.manufacturer_serial_number || ''}`;
+                QRCode.toCanvas(document.getElementById(`qr-serial-${index}`), qrData, {
+                    width: 200,
+                    margin: 1
+                }, function (error) {
+                    if (error) console.error('QR generation error:', error);
+                });
+            });
+            
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching serial numbers:', error);
+            alert('Error loading serial numbers');
+        });
+}
+
+// Generate QR labels for all batch numbers
+function generateBatchQRLabels(itemId, itemCode, itemName) {
+    fetch(`/grpo/items/${itemId}/batch-numbers`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success || !data.batch_numbers || data.batch_numbers.length === 0) {
+                alert('No batch numbers found for this item');
+                return;
+            }
+            
+            const batchNumbers = data.batch_numbers;
+            const modal = new bootstrap.Modal(document.getElementById('serialQRLabelsModal'));
+            const container = document.getElementById('serialQRLabelsContainer');
+            container.innerHTML = '';
+            
+            batchNumbers.forEach((batch, index) => {
+                const qrDiv = document.createElement('div');
+                qrDiv.className = 'qr-label-item';
+                qrDiv.innerHTML = `
+                    <div class="text-center p-3 border rounded mb-3">
+                        <h6>${itemCode} - ${itemName}</h6>
+                        <div id="qr-batch-${index}" class="qr-code-canvas mb-2"></div>
+                        <p class="mb-1"><strong>Batch: ${batch.batch_number}</strong></p>
+                        <p class="mb-1">Qty: ${batch.quantity}</p>
+                        ${batch.expiry_date ? `<p class="mb-0">Expiry: ${batch.expiry_date}</p>` : ''}
+                    </div>
+                `;
+                container.appendChild(qrDiv);
+                
+                const qrData = `BATCH:${itemCode}|${batch.batch_number}|QTY:${batch.quantity}`;
+                QRCode.toCanvas(document.getElementById(`qr-batch-${index}`), qrData, {
+                    width: 200,
+                    margin: 1
+                }, function (error) {
+                    if (error) console.error('QR generation error:', error);
+                });
+            });
+            
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching batch numbers:', error);
+            alert('Error loading batch numbers');
+        });
+}
+
+// Print all serial/batch QR labels
+function printAllQRLabels() {
+    const container = document.getElementById('serialQRLabelsContainer');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Print QR Labels</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .qr-label-item {
+                    page-break-inside: avoid;
+                    margin-bottom: 20px;
+                }
+                .text-center {
+                    text-align: center;
+                }
+                .p-3 {
+                    padding: 15px;
+                }
+                .border {
+                    border: 2px solid #000;
+                }
+                .rounded {
+                    border-radius: 8px;
+                }
+                .mb-3 {
+                    margin-bottom: 15px;
+                }
+                h6 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin: 0 0 10px 0;
+                }
+                p {
+                    margin: 5px 0;
+                }
+                canvas {
+                    max-width: 100%;
+                }
+                @media print {
+                    body {
+                        margin: 0;
+                        padding: 10px;
+                    }
+                    .qr-label-item {
+                        page-break-after: always;
+                    }
+                    .qr-label-item:last-child {
+                        page-break-after: auto;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            ${container.innerHTML}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
+
 // Set up event listeners when page loads
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.add-item-btn').forEach(button => {
@@ -1700,6 +1868,31 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
+<!-- Serial/Batch QR Labels Modal -->
+<div class="modal fade" id="serialQRLabelsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i data-feather="hash"></i> QR Code Labels
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+                <div id="serialQRLabelsContainer" class="row">
+                    <!-- QR labels will be generated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="printAllQRLabels()">
+                    <i data-feather="printer"></i> Print All Labels
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- QR Code Label Modal -->
 <div class="modal fade" id="qrCodeModal" tabindex="-1">
