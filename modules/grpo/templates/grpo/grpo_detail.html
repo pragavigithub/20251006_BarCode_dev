@@ -1703,11 +1703,16 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
             
             serialNumbers.forEach((serial, index) => {
                 const qrDiv = document.createElement('div');
-                qrDiv.className = 'qr-label-item';
+                qrDiv.className = 'qr-label-item col-md-6 mb-3';
+                
+                const qrData = `SN:${itemCode}|${serial.internal_serial_number}|${serial.manufacturer_serial_number || ''}`;
+                const canvas = document.createElement('canvas');
+                canvas.id = `qr-serial-${index}`;
+                
                 qrDiv.innerHTML = `
-                    <div class="text-center p-3 border rounded mb-3">
+                    <div class="text-center p-3 border rounded">
                         <h6>${itemCode} - ${itemName}</h6>
-                        <div id="qr-serial-${index}" class="qr-code-canvas mb-2"></div>
+                        <div class="qr-code-container mb-2"></div>
                         <p class="mb-1"><strong>Serial: ${serial.internal_serial_number}</strong></p>
                         ${serial.manufacturer_serial_number ? `<p class="mb-1">MFG: ${serial.manufacturer_serial_number}</p>` : ''}
                         ${serial.expiry_date ? `<p class="mb-0">Expiry: ${serial.expiry_date}</p>` : ''}
@@ -1715,13 +1720,21 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
                 `;
                 container.appendChild(qrDiv);
                 
-                const qrData = `SN:${itemCode}|${serial.internal_serial_number}|${serial.manufacturer_serial_number || ''}`;
-                QRCode.toCanvas(document.getElementById(`qr-serial-${index}`), qrData, {
-                    width: 200,
-                    margin: 1
-                }, function (error) {
-                    if (error) console.error('QR generation error:', error);
-                });
+                // Add canvas to QR container
+                const qrContainer = qrDiv.querySelector('.qr-code-container');
+                qrContainer.appendChild(canvas);
+                
+                // Generate QR code
+                if (typeof QRCode !== 'undefined') {
+                    QRCode.toCanvas(canvas, qrData, {
+                        width: 200,
+                        margin: 1
+                    }, function (error) {
+                        if (error) console.error('QR generation error:', error);
+                    });
+                } else {
+                    qrContainer.innerHTML = `<p class="text-danger">QR library not loaded</p>`;
+                }
             });
             
             modal.show();
@@ -1756,11 +1769,16 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
             
             batchNumbers.forEach((batch, index) => {
                 const qrDiv = document.createElement('div');
-                qrDiv.className = 'qr-label-item';
+                qrDiv.className = 'qr-label-item col-md-6 mb-3';
+                
+                const qrData = `BATCH:${itemCode}|${batch.batch_number}|QTY:${batch.quantity}`;
+                const canvas = document.createElement('canvas');
+                canvas.id = `qr-batch-${index}`;
+                
                 qrDiv.innerHTML = `
-                    <div class="text-center p-3 border rounded mb-3">
+                    <div class="text-center p-3 border rounded">
                         <h6>${itemCode} - ${itemName}</h6>
-                        <div id="qr-batch-${index}" class="qr-code-canvas mb-2"></div>
+                        <div class="qr-code-container mb-2"></div>
                         <p class="mb-1"><strong>Batch: ${batch.batch_number}</strong></p>
                         <p class="mb-1">Qty: ${batch.quantity}</p>
                         ${batch.expiry_date ? `<p class="mb-0">Expiry: ${batch.expiry_date}</p>` : ''}
@@ -1768,13 +1786,21 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
                 `;
                 container.appendChild(qrDiv);
                 
-                const qrData = `BATCH:${itemCode}|${batch.batch_number}|QTY:${batch.quantity}`;
-                QRCode.toCanvas(document.getElementById(`qr-batch-${index}`), qrData, {
-                    width: 200,
-                    margin: 1
-                }, function (error) {
-                    if (error) console.error('QR generation error:', error);
-                });
+                // Add canvas to QR container
+                const qrContainer = qrDiv.querySelector('.qr-code-container');
+                qrContainer.appendChild(canvas);
+                
+                // Generate QR code
+                if (typeof QRCode !== 'undefined') {
+                    QRCode.toCanvas(canvas, qrData, {
+                        width: 200,
+                        margin: 1
+                    }, function (error) {
+                        if (error) console.error('QR generation error:', error);
+                    });
+                } else {
+                    qrContainer.innerHTML = `<p class="text-danger">QR library not loaded</p>`;
+                }
             });
             
             modal.show();
