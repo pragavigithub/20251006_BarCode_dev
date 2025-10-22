@@ -18,8 +18,8 @@ from datetime import datetime
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',  # Change this to your MySQL username
-    'password': '',  # Change this to your MySQL password
-    'database': 'wms_db',  # Change this to your database name
+    'password': 'root123',  # Change this to your MySQL password
+    'database': 'test_emrald',  # Change this to your database name
     'charset': 'utf8mb4'
 }
 
