@@ -39,7 +39,18 @@ def detail(grpo_id):
         flash('Access denied - You can only view your own GRPOs', 'error')
         return redirect(url_for('grpo.index'))
     
-    return render_template('grpo/grpo_detail.html', grpo_doc=grpo_doc)
+    # Fetch PO items from SAP to display available items for receiving
+    po_items = []
+    sap = SAPIntegration()
+    po_data = sap.get_purchase_order(grpo_doc.po_number)
+    
+    if po_data and 'DocumentLines' in po_data:
+        po_items = po_data.get('DocumentLines', [])
+        logging.info(f"📦 Fetched {len(po_items)} items for PO {grpo_doc.po_number}")
+    else:
+        logging.warning(f"⚠️ Could not fetch PO items for {grpo_doc.po_number}")
+    
+    return render_template('grpo/grpo_detail.html', grpo_doc=grpo_doc, po_items=po_items)
 
 @grpo_bp.route('/create', methods=['GET', 'POST'])
 @login_required
