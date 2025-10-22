@@ -31,14 +31,14 @@ def index():
 @login_required
 def detail(grpo_id):
     """GRPO detail page"""
-    grpo = GRPODocument.query.get_or_404(grpo_id)
+    grpo_doc = GRPODocument.query.get_or_404(grpo_id)
     
     # Check permissions
-    if grpo.user_id != current_user.id and current_user.role not in ['admin', 'manager', 'qc']:
+    if grpo_doc.user_id != current_user.id and current_user.role not in ['admin', 'manager', 'qc']:
         flash('Access denied - You can only view your own GRPOs', 'error')
         return redirect(url_for('grpo.index'))
     
-    return render_template('grpo/grpo_detail.html', grpo=grpo)
+    return render_template('grpo/grpo_detail.html', grpo_doc=grpo_doc)
 
 @grpo_bp.route('/create', methods=['GET', 'POST'])
 @login_required
