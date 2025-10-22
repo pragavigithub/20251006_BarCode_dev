@@ -96,7 +96,7 @@ class GRPOSerialNumber(db.Model):
     expiry_date = db.Column(db.Date)
     manufacture_date = db.Column(db.Date)
     notes = db.Column(db.Text)
-    barcode = db.Column(db.String(200))  # Base64 encoded barcode image
+    #barcode = db.Column(db.String(200))  # Base64 encoded barcode image
     quantity = db.Column(db.Numeric(15, 3), default=1.0)
     base_line_number = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

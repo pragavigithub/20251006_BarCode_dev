@@ -341,7 +341,7 @@ def add_grpo_item(grpo_id):
                         expiry_date=datetime.strptime(serial_data['expiry_date'], '%Y-%m-%d').date() if serial_data.get('expiry_date') else None,
                         manufacture_date=datetime.strptime(serial_data['manufacture_date'], '%Y-%m-%d').date() if serial_data.get('manufacture_date') else None,
                         notes=serial_data.get('notes', ''),
-                        barcode=serial_barcode,
+                        #barcode=serial_barcode,
                         quantity=1.0,
                         base_line_number=idx
                     )
@@ -384,7 +384,7 @@ def add_grpo_item(grpo_id):
                         manufacturer_serial_number=batch_data.get('manufacturer_serial_number', ''),
                         internal_serial_number=batch_data.get('internal_serial_number', ''),
                         expiry_date=datetime.strptime(batch_data['expiry_date'], '%Y-%m-%d').date() if batch_data.get('expiry_date') else None,
-                        barcode=batch_barcode,
+                        #barcode=batch_barcode,
                         base_line_number=idx
                     )
                     db.session.add(batch)
