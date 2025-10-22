@@ -1,0 +1,23 @@
+================================================================================
+                  EXACT LINE TO COPY FROM REPLIT TO LOCAL
+================================================================================
+
+YOUR LOCAL FILE THAT NEEDS FIXING:
+    E:\emerald\20251022\11\20251006_BarCode_dev\modules\grpo\routes.py
+
+LINE NUMBER: 17
+
+COPY THIS EXACT LINE FROM REPLIT (already correct here):
+================================================================================
+
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo', template_folder='templates')
+
+================================================================================
+
+THAT'S THE ONLY LINE YOU NEED TO CHANGE!
+
+Replace your line 17 with the above line.
+
+Save. Restart Flask. Done. ✅
+
+================================================================================
