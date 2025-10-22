@@ -4,67 +4,20 @@
 -- Description: Implement conditional display of batch/serial fields based on SAP item validation
 -- =====================================================
 
+-- DOCUMENTATION ONLY - No schema changes required
 -- The required database fields are already part of the grpo_items table schema
 -- This migration documents the enhancement for conditional field display
 
--- Verify required columns exist in grpo_items table
--- Expected schema additions for item management tracking:
+-- Required columns in grpo_items table (already exist in schema):
 -- - batch_required VARCHAR(1) DEFAULT 'N'  -- 'Y' or 'N' - indicates if batch management is required
--- - serial_required VARCHAR(1) DEFAULT 'N' -- 'Y' or 'N' - indicates if serial management is required
+-- - serial_required VARCHAR(1) DEFAULT 'N' -- 'Y' or 'N' - indicates if serial management is required  
 -- - manage_method VARCHAR(1) DEFAULT 'N'   -- 'A' (Average), 'R' (FIFO/Release), 'N' (None)
 
--- Check if batch_required column exists, add if missing
-SET @dbname = DATABASE();
-SET @tablename = 'grpo_items';
-SET @columnname = 'batch_required';
-SET @preparedStatement = (SELECT IF(
-  (
-    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE
-      (table_name = @tablename)
-      AND (table_schema = @dbname)
-      AND (column_name = @columnname)
-  ) > 0,
-  'SELECT 1',
-  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(1) DEFAULT "N"')
-));
-PREPARE alterIfNotExists FROM @preparedStatement;
-EXECUTE alterIfNotExists;
-DEALLOCATE PREPARE alterIfNotExists;
+-- These fields were added in the initial schema via SQLAlchemy models
+-- See: modules/grpo/models.py, class GRPOItem, lines 59-61
 
--- Check if serial_required column exists, add if missing
-SET @columnname = 'serial_required';
-SET @preparedStatement = (SELECT IF(
-  (
-    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE
-      (table_name = @tablename)
-      AND (table_schema = @dbname)
-      AND (column_name = @columnname)
-  ) > 0,
-  'SELECT 1',
-  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(1) DEFAULT "N"')
-));
-PREPARE alterIfNotExists FROM @preparedStatement;
-EXECUTE alterIfNotExists;
-DEALLOCATE PREPARE alterIfNotExists;
-
--- Check if manage_method column exists, add if missing
-SET @columnname = 'manage_method';
-SET @preparedStatement = (SELECT IF(
-  (
-    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE
-      (table_name = @tablename)
-      AND (table_schema = @dbname)
-      AND (column_name = @columnname)
-  ) > 0,
-  'SELECT 1',
-  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(1) DEFAULT "N"')
-));
-PREPARE alterIfNotExists FROM @preparedStatement;
-EXECUTE alterIfNotExists;
-DEALLOCATE PREPARE alterIfNotExists;
+-- NO DATABASE CHANGES REQUIRED
+-- This migration is for documentation purposes only
 
 -- Application Logic Changes (Frontend):
 -- 1. Added wrapper div 'batch_section' around batch fields with id for show/hide control
