@@ -1681,8 +1681,15 @@ function printQRLabel() {
 
 // Generate QR labels for all serial numbers
 function generateSerialQRLabels(itemId, itemCode, itemName) {
-    fetch(`/grpo/items/${itemId}/serial-numbers`)
-        .then(response => response.json())
+    fetch(`/grpo/items/${itemId}/serial-numbers`, {
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (!data.success || !data.serial_numbers || data.serial_numbers.length === 0) {
                 alert('No serial numbers found for this item');
@@ -1727,8 +1734,15 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
 
 // Generate QR labels for all batch numbers
 function generateBatchQRLabels(itemId, itemCode, itemName) {
-    fetch(`/grpo/items/${itemId}/batch-numbers`)
-        .then(response => response.json())
+    fetch(`/grpo/items/${itemId}/batch-numbers`, {
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (!data.success || !data.batch_numbers || data.batch_numbers.length === 0) {
                 alert('No batch numbers found for this item');
