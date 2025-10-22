@@ -93,7 +93,16 @@ If you make database model changes, follow these steps to synchronize with MySQL
 
 ### Recent Schema Changes Requiring MySQL Update
 
-**October 22, 2025**:
+**October 22, 2025 - Update 2**: GRPO Schema Updates
+- **Added** `warehouse_code` column to `grpo_documents` table
+- **Updated** `grpo_items` table schema to match current models:
+  - Changed foreign key from `grpo_document_id` to `grpo_id`
+  - Added fields: `line_total`, `base_entry`, `base_line`, `batch_required`, `serial_required`, `manage_method`, `updated_at`
+  - Updated field types to match PostgreSQL models
+- **Fixed** import error in `routes.py` - added GRPO model imports from `modules.grpo.models`
+- **Action Required**: Run `mysql_consolidated_migration.py` to update MySQL schema
+
+**October 22, 2025 - Update 1**:
 - No schema changes - only relationship configuration fixes
 - MySQL schema remains compatible
 - No migration required
