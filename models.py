@@ -454,7 +454,6 @@ class QRCodeLabel(db.Model):
     
     # Relationships
     user = relationship('User', back_populates='qr_code_labels')
-    grpo_item = relationship('GRPOItem', back_populates='qr_code_labels')
     
     def __repr__(self):
         return f'<QRCodeLabel {self.label_type} - {self.item_code}>'

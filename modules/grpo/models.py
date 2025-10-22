@@ -62,9 +62,6 @@ class GRPOItem(db.Model):
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    qr_code_labels = relationship('QRCodeLabel', back_populates='grpo_item')
 
 class PurchaseDeliveryNote(db.Model):
     """Purchase Delivery Note for SAP B1 posting"""
