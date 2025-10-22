@@ -16,54 +16,49 @@ jinja2.exceptions.TemplateNotFound: grpo/grpo_detail.html
 
 ## 🔍 Root Cause
 
-The GRPO templates were located in the wrong directory:
-- **Incorrect location**: `modules/grpo/templates/*.html`
-- **Expected location**: `templates/grpo/*.html`
-
-Flask's template loader looks for templates in the main `templates/` directory by default. The GRPO module templates were stored in the module's subdirectory, which Flask couldn't find.
+The GRPO blueprint was not configured to look for templates in the module's directory. Flask defaults to the main `templates/` folder, but the GRPO templates are in `modules/grpo/templates/`.
 
 ---
 
 ## ✅ Solution Applied
 
-**Copied GRPO templates to correct location**:
+**Updated GRPO blueprint configuration** to use module's template folder:
 
-```bash
-mkdir -p templates/grpo
-cp modules/grpo/templates/*.html templates/grpo/
+**File**: `modules/grpo/routes.py` (line 20)
+```python
+# Before (missing template_folder)
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo')
+
+# After (with template_folder specified)
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo', template_folder='templates')
 ```
 
-**Templates moved**:
-1. ✅ `grpo.html` - Main GRPO list page
-2. ✅ `grpo_detail.html` - GRPO detail/viewing page
-3. ✅ `edit_grpo_item.html` - Edit GRPO item page
+**Templates remain in module**:
+1. ✅ `modules/grpo/templates/grpo.html` - Main GRPO list page
+2. ✅ `modules/grpo/templates/grpo_detail.html` - GRPO detail/viewing page
+3. ✅ `modules/grpo/templates/edit_grpo_item.html` - Edit GRPO item page
 
 ---
 
-## 📁 File Structure (Corrected)
+## 📁 Module Structure (Correct)
 
 ```
-templates/
-├── grpo/
-│   ├── grpo.html              # Main GRPO list
-│   ├── grpo_detail.html       # GRPO detail view
-│   └── edit_grpo_item.html    # Edit GRPO item
-├── serial_item_transfer/
-│   ├── create.html
-│   ├── detail.html
-│   └── index.html
-├── base.html
-├── dashboard.html
-└── ... (other templates)
+modules/grpo/
+├── templates/                 # Module's own templates
+│   ├── grpo.html             # Main GRPO list
+│   ├── grpo_detail.html      # GRPO detail view
+│   └── edit_grpo_item.html   # Edit GRPO item
+├── __init__.py
+├── models.py                  # GRPO database models
+└── routes.py                  # Blueprint with template_folder configured
+```
 
-modules/
-└── grpo/
-    ├── templates/             # Original location (kept for reference)
-    │   ├── grpo.html
-    │   ├── grpo_detail.html
-    │   └── edit_grpo_item.html
-    ├── models.py
-    └── routes.py
+**Key Configuration** (routes.py):
+```python
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo', template_folder='templates')
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                         This makes Flask look in 
+                                                         modules/grpo/templates/
 ```
 
 ---
@@ -76,6 +71,7 @@ After fix:
 - ✅ Can create new GRPO documents
 - ✅ GRPO detail page loads (`/grpo/detail/<id>`)
 - ✅ No template errors in console
+- ✅ Templates remain in module directory (no copying needed)
 
 ---
 
@@ -83,25 +79,17 @@ After fix:
 
 **For your local environment**:
 
-Since you're running the application locally with MySQL, you need to copy the templates to your local project:
+**One simple change** in `modules\grpo\routes.py`:
 
-```bash
-# Navigate to your project directory
-cd E:\emerald\20251022\6\20251006_BarCode_dev
+```python
+# Find line 17 (currently):
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo')
 
-# Create grpo templates directory
-mkdir templates\grpo
-
-# Copy templates from module to main templates folder
-copy modules\grpo\templates\*.html templates\grpo\
+# Change it to (add template_folder parameter):
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo', template_folder='templates')
 ```
 
-**Or manually**:
-1. Create folder: `templates/grpo/`
-2. Copy these files from `modules/grpo/templates/` to `templates/grpo/`:
-   - `grpo.html`
-   - `grpo_detail.html`
-   - `edit_grpo_item.html`
+**That's it!** Your templates already exist in the correct location (`modules\grpo\templates\`)
 
 ---
 

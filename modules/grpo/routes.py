@@ -14,7 +14,7 @@ import io
 import base64
 import json
 
-grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo')
+grpo_bp = Blueprint('grpo', __name__, url_prefix='/grpo', template_folder='templates')
 
 @grpo_bp.route('/')
 @login_required
