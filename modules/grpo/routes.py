@@ -67,11 +67,13 @@ def create():
             flash('PO number is required', 'error')
             return redirect(url_for('grpo.create'))
         
-        # Check if GRPO already exists for this PO
+        # Check if GRPO already exists for this PO (only prevent if not posted to SAP)
         existing_grpo = GRPODocument.query.filter_by(po_number=po_number, user_id=current_user.id).first()
-        if existing_grpo:
-            flash(f'GRPO already exists for PO {po_number}', 'warning')
+        if existing_grpo and existing_grpo.status != 'posted' and not existing_grpo.sap_document_number:
+            flash(f'GRPO already exists for PO {po_number} and is not yet posted. Please complete the existing GRPO first.', 'warning')
             return redirect(url_for('grpo.detail', grpo_id=existing_grpo.id))
+        elif existing_grpo and existing_grpo.status == 'posted':
+            logging.info(f"📝 Creating new GRPO for PO {po_number} - Previous GRPO already posted to SAP (DocNum: {existing_grpo.sap_document_number})")
         
         # Fetch PO details from SAP to get supplier information
         sap = SAPIntegration()
