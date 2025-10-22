@@ -156,6 +156,24 @@ UNION ALL
 SELECT 'grpo_items' as table_name, COUNT(*) as count FROM grpo_items;
 
 -- ========================================
+-- STEP 4: Fix Barcode Column Sizes (CRITICAL)
+-- ========================================
+
+-- Base64-encoded PNG images are 2000-10000 chars, VARCHAR(200) is too small!
+
+-- Update grpo_items barcode column
+ALTER TABLE grpo_items 
+MODIFY COLUMN barcode TEXT;
+
+-- Update grpo_serial_numbers barcode column
+ALTER TABLE grpo_serial_numbers 
+MODIFY COLUMN barcode TEXT;
+
+-- Update grpo_batch_numbers barcode column
+ALTER TABLE grpo_batch_numbers 
+MODIFY COLUMN barcode TEXT;
+
+-- ========================================
 -- NOTES:
 -- ========================================
 -- 1. This script uses ALTER TABLE ADD COLUMN which will give errors
