@@ -109,15 +109,21 @@ If you make database model changes, follow these steps to synchronize with MySQL
 
 ### MySQL Migration Files Available
 
-Primary Migration Script:
-- `mysql_consolidated_migration.py` - Complete consolidated migration (RECOMMENDED)
+**For Fresh Database Installation**:
+- `mysql_consolidated_migration.py` - Complete consolidated migration (use for new databases)
 
-Documentation:
+**For Updating Existing MySQL Databases** ⭐ MOST COMMON:
+- `mysql_grpo_update_existing.py` - **Automated Python migration** (RECOMMENDED)
+- `mysql_grpo_schema_update.sql` - Manual SQL migration script
+- `MYSQL_GRPO_MISSING_FIELDS_FIX.md` - **Complete troubleshooting guide** ⚠️ READ THIS FIRST
+
+**Previous Documentation** (Reference only):
 - `MYSQL_MIGRATION_GUIDE_FINAL.md` - Complete migration guide
 - `MYSQL_GRPO_MIGRATION_GUIDE.md` - GRPO-specific migration
 - `MYSQL_PICKLIST_MIGRATION_GUIDE.md` - Pick list migration
 - `MYSQL_SCHEMA_FIX_GUIDE.md` - Schema fixes and optimizations
 - `MYSQL_SETUP_GUIDE.md` - Initial setup guide
+- `GRPO_MODULE_FIX_OCTOBER_22_2025.md` - Summary of October 22 fixes
 
 ## Application Status
 
