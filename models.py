@@ -111,9 +111,7 @@ class User(UserMixin, db.Model):
         return self.get_permissions().get(screen, False)
 
     # Relationships
-    grpo_documents = relationship('GRPODocument',
-                                  back_populates='user',
-                                  foreign_keys='GRPODocument.user_id')
+    # Note: GRPO relationships are in modules/grpo/models.py
     inventory_transfers = relationship('InventoryTransfer',
                                        back_populates='user',
                                        foreign_keys='InventoryTransfer.user_id')
@@ -123,76 +121,6 @@ class User(UserMixin, db.Model):
     inventory_counts = relationship('InventoryCount', back_populates='user')
     bin_scanning_logs = relationship('BinScanningLog', back_populates='user')
     qr_code_labels = relationship('QRCodeLabel', back_populates='user')
-
-
-class GRPODocument(db.Model):
-    __tablename__ = 'grpo_documents'
-
-    id = db.Column(db.Integer, primary_key=True)
-    po_number = db.Column(db.String(20), nullable=False)
-    po_series = db.Column(db.String(20), nullable=True)  # SAP PO Series number
-    po_doc_entry = db.Column(db.Integer, nullable=True)  # SAP PO DocEntry number
-    sap_document_number = db.Column(db.String(20), nullable=True)
-    supplier_code = db.Column(db.String(50), nullable=True)  # CardCode from SAP
-    supplier_name = db.Column(db.String(200), nullable=True)
-    po_date = db.Column(db.DateTime, nullable=True)
-    po_total = db.Column(db.Float, nullable=True)
-    status = db.Column(
-        db.String(20),
-        default='draft')  # draft, submitted, approved, posted, rejected
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    qc_user_id = db.Column(db.Integer, db.ForeignKey('users.id'),
-                        nullable=True)  # QC approver
-    qc_approved_at = db.Column(db.DateTime, nullable=True)  # QC approval timestamp
-    qc_notes = db.Column(db.Text, nullable=True)
-    notes = db.Column(db.Text, nullable=True)  # General notes/comments for the GRPO
-    draft_or_post = db.Column(db.String(10), default='draft')  # draft, post
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime,
-                        default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
-
-    # Relationships
-    user = relationship('User',
-                        back_populates='grpo_documents',
-                        foreign_keys=[user_id])
-    qc_user = relationship('User', foreign_keys=[qc_user_id])
-    items = relationship('GRPOItem', back_populates='grpo_document')
-
-
-class GRPOItem(db.Model):
-    __tablename__ = 'grpo_items'
-
-    id = db.Column(db.Integer, primary_key=True)
-    grpo_document_id = db.Column(db.Integer,
-                              db.ForeignKey('grpo_documents.id'),
-                              nullable=False)
-    po_line_number = db.Column(db.Integer, nullable=True)  # Line number from PO
-    item_code = db.Column(db.String(50), nullable=False)
-    item_name = db.Column(db.String(200), nullable=False)
-    po_quantity = db.Column(db.Float, nullable=True)  # Original PO quantity
-    open_quantity = db.Column(db.Float, nullable=True)  # Remaining open quantity
-    received_quantity = db.Column(db.Float,
-                               nullable=False)  # Quantity being received
-    unit_of_measure = db.Column(db.String(10), nullable=False)
-    unit_price = db.Column(db.Float, nullable=True)
-    bin_location = db.Column(db.String(150), nullable=False)
-    batch_number = db.Column(db.String(50), nullable=True)
-    serial_number = db.Column(db.String(50), nullable=True)  # Serial number for serial-managed items
-    expiration_date = db.Column(db.DateTime, nullable=True)
-    supplier_barcode = db.Column(db.String(100),
-                              nullable=True)  # Original supplier barcode
-    generated_barcode = db.Column(db.String(100),
-                               nullable=True)  # WMS generated barcode
-    barcode_printed = db.Column(db.Boolean, default=False)
-    qc_status = db.Column(db.String(20),
-                       default='pending')  # pending, approved, rejected
-    qc_notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    grpo_document = relationship('GRPODocument', back_populates='items')
-    qr_code_labels = relationship('QRCodeLabel', back_populates='grpo_item')
 
 
 class InventoryTransfer(db.Model):

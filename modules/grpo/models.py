@@ -4,7 +4,6 @@ Contains all models related to goods receipt against purchase orders
 """
 from app import db
 from datetime import datetime
-from modules.shared.models import User
 
 class GRPODocument(db.Model):
     """Main GRPO document header"""
@@ -15,8 +14,8 @@ class GRPODocument(db.Model):
     supplier_code = db.Column(db.String(20))
     supplier_name = db.Column(db.String(100))
     warehouse_code = db.Column(db.String(10))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    qc_approver_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    qc_approver_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     qc_approved_at = db.Column(db.DateTime)
     qc_notes = db.Column(db.Text)
     status = db.Column(db.String(20), default='draft')  # draft, submitted, qc_approved, posted, rejected

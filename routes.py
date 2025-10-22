@@ -7,7 +7,7 @@ import json
 from barcode_generator import BarcodeGenerator
 
 from app import app, db, login_manager
-from models import User, GRPODocument, GRPOItem, InventoryTransfer, InventoryTransferItem, PickList, PickListItem, \
+from models import User, InventoryTransfer, InventoryTransferItem, PickList, PickListItem, \
     InventoryCount, InventoryCountItem, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine
 from modules.multi_grn_creation.models import MultiGRNBatch
 from sap_integration import SAPIntegration
