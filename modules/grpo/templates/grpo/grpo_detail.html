@@ -431,6 +431,9 @@
                         </div>
                     </div>
 
+                    <!-- Hidden field for batch numbers JSON -->
+                    <input type="hidden" id="batch_numbers_json" name="batch_numbers_json">
+
                     <div class="mb-3">
                         <label for="barcode" class="form-label">Supplier Barcode</label>
                         <input type="text" class="form-control" id="barcode" name="barcode" placeholder="Scan or enter supplier barcode">
@@ -963,33 +966,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Prepare serial data for form submission
 function prepareSerialDataForSubmit() {
-    if (!itemValidationResult || !itemValidationResult.serial_required) {
-        return true; // Not a serial item, proceed normally
-    }
-    
-    const serialInputs = document.querySelectorAll('.serial-input');
-    const serialNumbers = [];
-    
-    for (let input of serialInputs) {
-        if (!input.value.trim()) {
-            alert(`Please enter serial number #${parseInt(input.getAttribute('data-serial-index')) + 1}`);
-            input.focus();
-            return false; // Prevent form submission
+    // Handle batch managed items
+    if (itemValidationResult && itemValidationResult.batch_required) {
+        const batchNumber = document.getElementById('batch_number').value.trim();
+        const expirationDate = document.getElementById('expiration_date').value;
+        const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+        
+        if (!batchNumber) {
+            alert('Batch number is required for batch-managed items');
+            document.getElementById('batch_number').focus();
+            return false;
         }
         
-        serialNumbers.push({
-            internal_serial_number: input.value.trim(),
-            manufacturer_serial_number: input.value.trim(), // Can be modified if you have separate field
-            expiry_date: null,
-            manufacture_date: null,
-            notes: ''
-        });
+        // Prepare batch numbers array with single batch
+        const batchNumbers = [{
+            batch_number: batchNumber,
+            quantity: quantity,
+            expiry_date: expirationDate || null,
+            manufacturer_serial_number: '',
+            internal_serial_number: ''
+        }];
+        
+        // Store batch numbers as JSON in hidden field
+        document.getElementById('batch_numbers_json').value = JSON.stringify(batchNumbers);
+        console.log('Batch numbers prepared for submission:', batchNumbers);
     }
     
-    // Store serial numbers as JSON in hidden field
-    document.getElementById('serial_numbers_json').value = JSON.stringify(serialNumbers);
+    // Handle serial managed items
+    if (itemValidationResult && itemValidationResult.serial_required) {
+        const serialInputs = document.querySelectorAll('.serial-input');
+        const serialNumbers = [];
+        
+        for (let input of serialInputs) {
+            if (!input.value.trim()) {
+                alert(`Please enter serial number #${parseInt(input.getAttribute('data-serial-index')) + 1}`);
+                input.focus();
+                return false; // Prevent form submission
+            }
+            
+            serialNumbers.push({
+                internal_serial_number: input.value.trim(),
+                manufacturer_serial_number: input.value.trim(),
+                expiry_date: null,
+                manufacture_date: null,
+                notes: ''
+            });
+        }
+        
+        // Store serial numbers as JSON in hidden field
+        document.getElementById('serial_numbers_json').value = JSON.stringify(serialNumbers);
+        console.log('Serial numbers prepared for submission:', serialNumbers);
+    }
     
-    console.log('Serial numbers prepared for submission:', serialNumbers);
     return true; // Allow form submission
 }
 
