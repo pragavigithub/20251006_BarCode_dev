@@ -385,32 +385,34 @@
                     </div>
 
                     <!-- Serial/Batch Management Section -->
-                   <!-- Serial/Batch Management Section -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="batch_number" class="form-label">Batch Number</label>
-                                <div class="input-group">
-                                    <select class="form-select" id="batch_select" onchange="handleBatchSelection()" disabled>
-                                        <option value="">Select Batch...</option>
-                                    </select>
-                                    <button class="btn btn-outline-secondary" type="button" onclick="toggleManualBatch()" title="Enter manually">
-                                        <i data-feather="edit-3"></i>
-                                    </button>
-                                </div>
-                                <div class="input-group mt-2" id="batch_number_manual_group" style="display: none;">
-                                    <input type="text" class="form-control" id="batch_number" name="batch_number"
-                                           placeholder="Or enter batch number manually">
-                                    <button class="btn btn-outline-primary" type="button" onclick="generateBatchBarcode()" title="Generate barcode for batch">
-                                        <i data-feather="maximize-2"></i> Generate Barcode
-                                    </button>
+                    <!-- Batch Section (Hidden by default, shown for batch managed items) -->
+                    <div id="batch_section" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="batch_number" class="form-label">Batch Number</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="batch_select" onchange="handleBatchSelection()" disabled>
+                                            <option value="">Select Batch...</option>
+                                        </select>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="toggleManualBatch()" title="Enter manually">
+                                            <i data-feather="edit-3"></i>
+                                        </button>
+                                    </div>
+                                    <div class="input-group mt-2" id="batch_number_manual_group" style="display: none;">
+                                        <input type="text" class="form-control" id="batch_number" name="batch_number"
+                                               placeholder="Or enter batch number manually">
+                                        <button class="btn btn-outline-primary" type="button" onclick="generateBatchBarcode()" title="Generate barcode for batch">
+                                            <i data-feather="maximize-2"></i> Generate Barcode
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="expiration_date" class="form-label">Expiration Date</label>
-                                <input type="date" class="form-control" id="expiration_date" name="expiration_date">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="expiration_date" class="form-label">Expiration Date</label>
+                                    <input type="date" class="form-control" id="expiration_date" name="expiration_date">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -781,18 +783,11 @@ let itemValidationResult = null;
 function handleItemCodeChange() {
     const itemCode = document.getElementById('item_code').value;
     if (itemCode) {
-        // SAP validation disabled - show all fields for manual entry
-        // validateItemCodeFromSAP(itemCode);
-        
-        const batchExpiryRow = document.getElementById('batch_number').closest('.row');
-        const serialSection = document.getElementById('serial_section');
-        
-        // Show batch/expiry fields for manual entry
-        if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
-        if (serialSection) serialSection.style.display = 'none';
+        // Enable SAP validation to check if item is batch/serial managed
+        validateItemCodeFromSAP(itemCode);
         
         loadCascadingWarehouses();
-        console.log(`Item ${itemCode} entered - all batch/serial fields available for manual entry (SAP validation disabled)`);
+        console.log(`Item ${itemCode} entered - validating item management type from SAP`);
     } else {
         // Clear dependent dropdowns when item code is cleared
         document.getElementById('batch_select').innerHTML = '<option value="">Select Batch...</option>';
@@ -813,24 +808,24 @@ function validateItemCodeFromSAP(itemCode) {
             console.log('serial_required value:', data.serial_required, 'type:', typeof data.serial_required);
             
             // Show/hide fields based on validation
-            // Get the entire row containing batch and expiration fields
-            const batchExpiryRow = document.getElementById('batch_number').closest('.row');
+            // Get the batch and serial sections
+            const batchSection = document.getElementById('batch_section');
             const serialSection = document.getElementById('serial_section');
             
             // Explicit boolean check - only show batch if batch_required is explicitly true
             if (data.batch_required === true) {
-                // Show batch fields, hide serial section (use 'flex' to preserve Bootstrap row layout)
-                if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
+                // Show batch fields, hide serial section
+                if (batchSection) batchSection.style.display = 'block';
                 if (serialSection) serialSection.style.display = 'none';
                 
                 // Enable batch selection and load batches
                 document.getElementById('batch_select').disabled = false;
                 loadCascadingBatches();
                 
-                console.log(`✅ Item ${itemCode} is BATCH managed - showing batch fields`);
+                console.log(`✅ Item ${itemCode} is BATCH managed - showing batch fields, hiding serial fields`);
             } else if (data.serial_required === true) {
-                // Show serial section, hide batch/expiry row completely
-                if (batchExpiryRow) batchExpiryRow.style.display = 'none';
+                // Show serial section, hide batch section completely
+                if (batchSection) batchSection.style.display = 'none';
                 if (serialSection) {
                     serialSection.style.display = 'block';
                     // Initialize serial number inputs based on quantity
@@ -839,36 +834,36 @@ function validateItemCodeFromSAP(itemCode) {
                 
                 console.log(`✅ Item ${itemCode} is SERIAL managed - showing serial fields, hiding batch fields`);
             } else {
-                // Neither batch nor serial - show batch/expiry for manual entry (use 'flex' to preserve Bootstrap row layout)
-                if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
+                // Neither batch nor serial - hide both sections (standard item)
+                if (batchSection) batchSection.style.display = 'none';
                 if (serialSection) serialSection.style.display = 'none';
                 
-                console.log(`ℹ️ Item ${itemCode} is NOT batch/serial managed - standard item`);
+                console.log(`ℹ️ Item ${itemCode} is NOT batch/serial managed - standard item (no batch/serial required)`);
             }
         })
         .catch(error => {
             console.error('Error validating item code from SAP:', error);
-            // On error, show all fields to allow manual entry (fallback mode)
-            const batchExpiryRow = document.getElementById('batch_number').closest('.row');
+            // On error, hide fields (don't allow invalid data entry)
+            const batchSection = document.getElementById('batch_section');
             const serialSection = document.getElementById('serial_section');
             
-            // Show both batch and serial sections for manual entry (use 'flex' to preserve Bootstrap row layout)
-            if (batchExpiryRow) batchExpiryRow.style.display = 'flex';
-            if (serialSection) serialSection.style.display = 'block';
+            // Hide both sections when validation fails
+            if (batchSection) batchSection.style.display = 'none';
+            if (serialSection) serialSection.style.display = 'none';
             
-            console.warn(`⚠️ SAP validation unavailable for ${itemCode} - showing all fields for manual entry`);
+            console.warn(`⚠️ SAP validation unavailable for ${itemCode} - unable to determine item management type`);
             
-            // Optional: Show user-visible warning
+            // Show user-visible warning
             alert(`⚠️ Unable to validate item from SAP. All batch/serial fields are now available for manual entry.\n\nPlease verify the item requirements manually.`);
         });
 }
 
 // Hide all batch/serial sections
 function hideBatchSerialSections() {
-    const batchExpiryRow = document.getElementById('batch_number').closest('.row');
+    const batchSection = document.getElementById('batch_section');
     const serialSection = document.getElementById('serial_section');
     
-    if (batchExpiryRow) batchExpiryRow.style.display = 'none';
+    if (batchSection) batchSection.style.display = 'none';
     if (serialSection) serialSection.style.display = 'none';
 }
 
