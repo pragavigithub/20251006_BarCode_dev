@@ -782,3 +782,6 @@ class SerialItemTransferItem(db.Model):
     
     # Note: Allowing duplicate serial numbers for user review and manual deletion
     # __table_args__ = (db.UniqueConstraint('serial_item_transfer_id', 'serial_number', name='unique_serial_per_transfer'),)
+
+# Import delivery module models
+from modules.sales_delivery.models import DeliveryDocument, DeliveryItem
