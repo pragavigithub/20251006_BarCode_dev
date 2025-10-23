@@ -2934,8 +2934,8 @@ def inventory_counting():
         flash('Access denied. You do not have permission to access Inventory Counting screen.', 'error')
         return redirect(url_for('dashboard'))
     
-    counts = InventoryCount.query.filter_by(user_id=current_user.id).order_by(InventoryCount.created_at.desc()).all()
-    return render_template('inventory_counting.html', counts=counts)
+    # Redirect to SAP Counting - Local Counting method has been removed
+    return redirect(url_for('inventory_counting_sap'))
 
 @app.route('/inventory_counting_sap')
 @login_required

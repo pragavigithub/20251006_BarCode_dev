@@ -102,18 +102,10 @@
 <!--                </li>-->
 <!--                {% endif %}-->
                 {% if current_user.has_permission('inventory_counting') %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('inventory_counting_sap') }}">
                         <i data-feather="check-square"></i> Counting
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('inventory_counting_sap') }}">
-                            <i data-feather="database"></i> SAP Counting
-                        </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('inventory_counting') }}">
-                            <i data-feather="list"></i> Local Counting
-                        </a></li>
-                    </ul>
                 </li>
                 {% endif %}
                 {% if current_user.has_permission('bin_scanning') %}
