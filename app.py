@@ -192,11 +192,13 @@ from modules.inventory_transfer.routes import transfer_bp
 from modules.serial_item_transfer.routes import serial_item_bp
 from modules.multi_grn_creation.routes import multi_grn_bp
 from modules.grpo.routes import grpo_bp
+from modules.sales_delivery.routes import sales_delivery_bp
 
 app.register_blueprint(transfer_bp)
 app.register_blueprint(serial_item_bp)
 app.register_blueprint(multi_grn_bp)
 app.register_blueprint(grpo_bp)
+app.register_blueprint(sales_delivery_bp)
 
 # Add module-specific template folders to Jinja loader search path
 app.jinja_loader.searchpath.extend([
