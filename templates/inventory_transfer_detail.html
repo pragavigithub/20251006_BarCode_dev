@@ -1012,5 +1012,179 @@ function debounce(func, wait) {
         timeout = setTimeout(later, wait);
     };
 }
+
+// Individual QR Labels Generation for Transfer Items
+function generateIndividualTransferQRLabels(itemId, itemCode, itemName) {
+    console.log(`Generating individual QR labels for transfer item ${itemId}`);
+    
+    fetch(`/inventory_transfer/items/${itemId}/generate-qr-labels`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success || !data.labels || data.labels.length === 0) {
+                alert('No labels to generate for this item');
+                return;
+            }
+            
+            const labels = data.labels;
+            const modal = new bootstrap.Modal(document.getElementById('transferIndividualQRLabelsModal'));
+            const container = document.getElementById('transferIndividualQRLabelsContainer');
+            container.innerHTML = '';
+            
+            // Wait for QRCode library then generate codes
+            waitForQRCodeTransfer((loaded) => {
+                labels.forEach((label, index) => {
+                    const qrDiv = document.createElement('div');
+                    qrDiv.className = 'qr-label-item col-md-6 mb-3';
+                    
+                    const qrData = `TRANSFER:${label.item_code}|${label.transfer_number}|FROM:${label.from_warehouse}|TO:${label.to_warehouse}|UNIT:${label.unit_number}/${label.total_units}${label.batch_number ? '|BATCH:' + label.batch_number : ''}`;
+                    
+                    qrDiv.innerHTML = `
+                        <div class="text-center p-3 border rounded">
+                            <h6>${label.item_code} - ${label.item_name}</h6>
+                            <div class="qr-code-container mb-2"></div>
+                            <p class="mb-1"><strong>Transfer: ${label.transfer_number}</strong></p>
+                            <p class="mb-1"><strong>From: ${label.from_warehouse}</strong> (${label.from_bin})</p>
+                            <p class="mb-1"><strong>To: ${label.to_warehouse}</strong> (${label.to_bin})</p>
+                            ${label.batch_number ? `<p class="mb-1">Batch: ${label.batch_number}</p>` : ''}
+                            <p class="mb-0">Unit ${label.unit_number} of ${label.total_units}</p>
+                        </div>
+                    `;
+                    container.appendChild(qrDiv);
+                    
+                    // Get QR container for code generation
+                    const qrContainer = qrDiv.querySelector('.qr-code-container');
+                    
+                    // Generate QR code using qrcodejs
+                    if (loaded && typeof QRCode !== 'undefined') {
+                        try {
+                            new QRCode(qrContainer, {
+                                text: qrData,
+                                width: 200,
+                                height: 200,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } catch (error) {
+                            console.error('QR generation error:', error);
+                            qrContainer.innerHTML = `<p class="text-danger">Error generating QR: ${error.message}</p>`;
+                        }
+                    } else {
+                        qrContainer.innerHTML = `<p class="text-danger">QR library not loaded. Please do a hard refresh (Ctrl+Shift+R)</p>`;
+                    }
+                });
+                
+                modal.show();
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching transfer item for QR labels:', error);
+            alert(`Error loading QR labels: ${error.message}\n\nPlease check:\n1. Item exists\n2. You are logged in\n3. Check browser console for details`);
+        });
+}
+
+// Wait for QRCode library to load (for transfer)
+function waitForQRCodeTransfer(callback, timeout = 5000) {
+    console.log('Waiting for QRCode library...');
+    console.log('QRCode available:', typeof QRCode !== 'undefined');
+    
+    const startTime = Date.now();
+    const checkInterval = setInterval(() => {
+        if (typeof QRCode !== 'undefined') {
+            console.log('✅ QRCode library loaded successfully!');
+            clearInterval(checkInterval);
+            callback(true);
+        } else if (Date.now() - startTime > timeout) {
+            console.error('❌ QRCode library failed to load after 5 seconds');
+            console.error('Please do a hard refresh: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)');
+            clearInterval(checkInterval);
+            callback(false);
+        }
+    }, 100);
+}
+
+// Print all transfer individual QR labels
+function printAllTransferQRLabels() {
+    const container = document.getElementById('transferIndividualQRLabelsContainer');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Print Transfer QR Labels</title>
+            <style>
+                @media print {
+                    body { margin: 0; }
+                    .qr-label-item { page-break-inside: avoid; }
+                }
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                }
+                .qr-label-item {
+                    display: inline-block;
+                    width: 45%;
+                    margin: 10px;
+                    padding: 15px;
+                    border: 2px solid #000;
+                    text-align: center;
+                    vertical-align: top;
+                }
+                .qr-label-item h6 {
+                    font-size: 14px;
+                    margin-bottom: 10px;
+                }
+                .qr-label-item p {
+                    font-size: 11px;
+                    margin: 3px 0;
+                }
+                .qr-label-item img, .qr-label-item canvas {
+                    max-width: 100%;
+                    height: auto;
+                }
+            </style>
+        </head>
+        <body>
+            ${container.innerHTML}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
 </script>
+
+<!-- Individual QR Labels Modal -->
+<div class="modal fade" id="transferIndividualQRLabelsModal" tabindex="-1" aria-labelledby="transferIndividualQRLabelsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transferIndividualQRLabelsModalLabel"># QR Code Labels</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="transferIndividualQRLabelsContainer" class="row">
+                    <!-- QR codes will be generated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="printAllTransferQRLabels()">
+                    <i data-feather="printer"></i> Print All Labels
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
