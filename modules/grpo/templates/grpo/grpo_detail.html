@@ -1728,8 +1728,6 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
                     qrDiv.className = 'qr-label-item col-md-6 mb-3';
                     
                     const qrData = `SN:${itemCode}|${serial.internal_serial_number}|${serial.manufacturer_serial_number || ''}`;
-                    const canvas = document.createElement('canvas');
-                    canvas.id = `qr-serial-${index}`;
                     
                     qrDiv.innerHTML = `
                         <div class="text-center p-3 border rounded">
@@ -1742,18 +1740,24 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
                     `;
                     container.appendChild(qrDiv);
                     
-                    // Add canvas to QR container
+                    // Get QR container for code generation
                     const qrContainer = qrDiv.querySelector('.qr-code-container');
-                    qrContainer.appendChild(canvas);
                     
-                    // Generate QR code
+                    // Generate QR code using qrcodejs
                     if (loaded && typeof QRCode !== 'undefined') {
-                        QRCode.toCanvas(canvas, qrData, {
-                            width: 200,
-                            margin: 1
-                        }, function (error) {
-                            if (error) console.error('QR generation error:', error);
-                        });
+                        try {
+                            new QRCode(qrContainer, {
+                                text: qrData,
+                                width: 200,
+                                height: 200,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } catch (error) {
+                            console.error('QR generation error:', error);
+                            qrContainer.innerHTML = `<p class="text-danger">Error generating QR: ${error.message}</p>`;
+                        }
                     } else {
                         qrContainer.innerHTML = `<p class="text-danger">QR library not loaded. Please do a hard refresh (Ctrl+Shift+R)</p>`;
                     }
@@ -1797,8 +1801,6 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
                     qrDiv.className = 'qr-label-item col-md-6 mb-3';
                     
                     const qrData = `BATCH:${itemCode}|${batch.batch_number}|QTY:${batch.quantity}`;
-                    const canvas = document.createElement('canvas');
-                    canvas.id = `qr-batch-${index}`;
                     
                     qrDiv.innerHTML = `
                         <div class="text-center p-3 border rounded">
@@ -1811,18 +1813,24 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
                     `;
                     container.appendChild(qrDiv);
                     
-                    // Add canvas to QR container
+                    // Get QR container for code generation
                     const qrContainer = qrDiv.querySelector('.qr-code-container');
-                    qrContainer.appendChild(canvas);
                     
-                    // Generate QR code
+                    // Generate QR code using qrcodejs
                     if (loaded && typeof QRCode !== 'undefined') {
-                        QRCode.toCanvas(canvas, qrData, {
-                            width: 200,
-                            margin: 1
-                        }, function (error) {
-                            if (error) console.error('QR generation error:', error);
-                        });
+                        try {
+                            new QRCode(qrContainer, {
+                                text: qrData,
+                                width: 200,
+                                height: 200,
+                                colorDark: '#000000',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } catch (error) {
+                            console.error('QR generation error:', error);
+                            qrContainer.innerHTML = `<p class="text-danger">Error generating QR: ${error.message}</p>`;
+                        }
                     } else {
                         qrContainer.innerHTML = `<p class="text-danger">QR library not loaded. Please do a hard refresh (Ctrl+Shift+R)</p>`;
                     }
