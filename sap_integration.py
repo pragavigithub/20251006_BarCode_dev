@@ -380,6 +380,150 @@ class SAPIntegration:
             )
         return []
 
+    def get_so_series(self):
+        """Get Sales Order series from SAP B1 using SQLQueries"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning empty series list")
+            return []
+
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Series')/List"
+            response = self.session.post(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                series_list = data.get('value', [])
+                logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP")
+                return series_list
+            else:
+                logging.warning(f"Failed to get SO series: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error fetching SO series: {str(e)}")
+            return []
+
+    def get_so_doc_entry(self, series, doc_num):
+        """Get Sales Order DocEntry from SAP B1 using series and document number"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, cannot get DocEntry")
+            return None
+
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Details')/List"
+            payload = {
+                "ParamList": f"SONumber='{doc_num}'&Series='{series}'"
+            }
+            
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('value', [])
+                if results:
+                    doc_entry = results[0].get('DocEntry')
+                    logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num}")
+                    return doc_entry
+                else:
+                    logging.warning(f"No SO DocEntry found for Series: {series}, DocNum: {doc_num}")
+                    return None
+            else:
+                logging.warning(f"Failed to get SO DocEntry: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error fetching SO DocEntry: {str(e)}")
+            return None
+
+    def get_sales_order_by_doc_entry(self, doc_entry):
+        """Get Sales Order details from SAP B1 using DocEntry - only open documents and lines"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning None")
+            return None
+
+        try:
+            url = f"{self.base_url}/b1s/v1/Orders?$filter=DocEntry eq {doc_entry}"
+            response = self.session.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('value'):
+                    so_data = data['value'][0]
+                    
+                    # Filter for open documents only
+                    if so_data.get('DocumentStatus') != 'bost_Open':
+                        logging.warning(f"Sales Order {doc_entry} is not open (Status: {so_data.get('DocumentStatus')})")
+                        return None
+                    
+                    # Filter for open lines only
+                    if 'DocumentLines' in so_data:
+                        open_lines = [
+                            line for line in so_data['DocumentLines']
+                            if line.get('LineStatus') == 'bost_Open'
+                        ]
+                        so_data['DocumentLines'] = open_lines
+                        
+                        if not open_lines:
+                            logging.warning(f"Sales Order {doc_entry} has no open lines")
+                            return None
+                    
+                    logging.info(f"✅ Retrieved SO DocEntry: {doc_entry}, DocNum: {so_data.get('DocNum')}, Open Lines: {len(so_data.get('DocumentLines', []))}")
+                    return so_data
+                else:
+                    logging.warning(f"No Sales Order found for DocEntry: {doc_entry}")
+                    return None
+            else:
+                logging.warning(f"Failed to get Sales Order by DocEntry: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error fetching Sales Order by DocEntry {doc_entry}: {str(e)}")
+            return None
+
+    def create_delivery_note(self, delivery_data):
+        """Create Delivery Note in SAP B1"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, cannot create delivery note")
+            return {
+                'success': False,
+                'error': 'SAP B1 connection unavailable'
+            }
+
+        try:
+            url = f"{self.base_url}/b1s/v1/DeliveryNotes"
+            
+            logging.info(f"📤 Posting Delivery Note to SAP B1...")
+            logging.debug(f"Delivery data: {json.dumps(delivery_data, indent=2)}")
+            
+            response = self.session.post(url, json=delivery_data, timeout=60)
+            
+            if response.status_code == 201:
+                result = response.json()
+                doc_entry = result.get('DocEntry')
+                doc_num = result.get('DocNum')
+                logging.info(f"✅ Delivery Note created successfully - DocEntry: {doc_entry}, DocNum: {doc_num}")
+                return {
+                    'success': True,
+                    'doc_entry': doc_entry,
+                    'doc_num': doc_num,
+                    'message': f'Delivery Note {doc_num} created successfully'
+                }
+            else:
+                error_message = response.text
+                logging.error(f"❌ Failed to create Delivery Note: {response.status_code} - {error_message}")
+                return {
+                    'success': False,
+                    'error': f'SAP B1 Error: {error_message}',
+                    'status_code': response.status_code
+                }
+                
+        except Exception as e:
+            logging.error(f"❌ Exception creating Delivery Note: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Exception: {str(e)}'
+            }
+
     def get_invt_series(self):
         """Get Inventory Transfer series from SAP B1 using SQLQueries"""
         if not self.ensure_logged_in():
