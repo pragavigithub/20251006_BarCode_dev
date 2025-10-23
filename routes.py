@@ -8,7 +8,7 @@ from barcode_generator import BarcodeGenerator
 
 from app import app, db, login_manager
 from models import User, InventoryTransfer, InventoryTransferItem, PickList, PickListItem, \
-    InventoryCount, InventoryCountItem, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine
+    InventoryCount, InventoryCountItem, SAPInventoryCount, SAPInventoryCountLine, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine
 from modules.grpo.models import GRPODocument, GRPOItem, GRPOSerialNumber, GRPOBatchNumber, PurchaseDeliveryNote
 from modules.multi_grn_creation.models import MultiGRNBatch
 from sap_integration import SAPIntegration
@@ -271,8 +271,9 @@ def get_invcnt_docentry():
         }), 500
 
 @app.route('/api/get-invcnt-details', methods=['GET'])
+@login_required
 def get_invcnt_details():
-    """Get Inventory Counting document details by DocEntry"""
+    """Get Inventory Counting document details by DocEntry and save locally"""
     try:
         doc_entry = request.args.get('doc_entry')
         
@@ -294,6 +295,99 @@ def get_invcnt_details():
                     'error': f'Document is not open. Status: {doc_status}. Only open documents can be processed.'
                 }), 400
             
+            # Save document to local database
+            try:
+                # Check if document already exists locally
+                local_doc = SAPInventoryCount.query.filter_by(doc_entry=int(doc_entry)).first()
+                
+                if local_doc:
+                    # Update existing document
+                    local_doc.doc_number = invcnt_data.get('DocNumber')
+                    local_doc.series = invcnt_data.get('Series')
+                    local_doc.count_date = invcnt_data.get('CountDate')
+                    local_doc.counting_type = invcnt_data.get('CountingType')
+                    local_doc.count_time = invcnt_data.get('CountTime')
+                    local_doc.single_counter_type = invcnt_data.get('SingleCounterType')
+                    local_doc.document_status = invcnt_data.get('DocumentStatus')
+                    local_doc.remarks = invcnt_data.get('Remarks')
+                    local_doc.reference_2 = invcnt_data.get('Reference2')
+                    local_doc.branch_id = invcnt_data.get('BPL_IDAssignedToInvoice')
+                    local_doc.financial_period = invcnt_data.get('FinancialPeriod')
+                    local_doc.counter_type = invcnt_data.get('CounterType')
+                    local_doc.counter_id = invcnt_data.get('CounterID')
+                    local_doc.multiple_counter_role = invcnt_data.get('MultipleCounterRole')
+                    local_doc.last_updated_at = datetime.utcnow()
+                    
+                    # Delete existing lines and recreate them
+                    SAPInventoryCountLine.query.filter_by(count_id=local_doc.id).delete()
+                else:
+                    # Create new document
+                    local_doc = SAPInventoryCount(
+                        doc_entry=int(doc_entry),
+                        doc_number=invcnt_data.get('DocNumber'),
+                        series=invcnt_data.get('Series'),
+                        count_date=invcnt_data.get('CountDate'),
+                        counting_type=invcnt_data.get('CountingType'),
+                        count_time=invcnt_data.get('CountTime'),
+                        single_counter_type=invcnt_data.get('SingleCounterType'),
+                        document_status=invcnt_data.get('DocumentStatus'),
+                        remarks=invcnt_data.get('Remarks'),
+                        reference_2=invcnt_data.get('Reference2'),
+                        branch_id=invcnt_data.get('BPL_IDAssignedToInvoice'),
+                        financial_period=invcnt_data.get('FinancialPeriod'),
+                        counter_type=invcnt_data.get('CounterType'),
+                        counter_id=invcnt_data.get('CounterID'),
+                        multiple_counter_role=invcnt_data.get('MultipleCounterRole'),
+                        user_id=current_user.id
+                    )
+                    db.session.add(local_doc)
+                    db.session.flush()
+                
+                # Save document lines
+                lines = invcnt_data.get('InventoryCountLines', [])
+                for line in lines:
+                    in_whs_qty = float(line.get('InWarehouseQuantity', 0))
+                    uom_counted_qty = float(line.get('UoMCountedQuantity', 0))
+                    variance = uom_counted_qty - in_whs_qty
+                    
+                    local_line = SAPInventoryCountLine(
+                        count_id=local_doc.id,
+                        line_number=line.get('LineNumber'),
+                        item_code=line.get('ItemCode'),
+                        item_description=line.get('ItemDescription'),
+                        warehouse_code=line.get('WarehouseCode'),
+                        bin_entry=line.get('BinEntry'),
+                        in_warehouse_quantity=in_whs_qty,
+                        counted=line.get('Counted', 'tNO'),
+                        uom_code=line.get('UoMCode'),
+                        bar_code=line.get('BarCode'),
+                        uom_counted_quantity=uom_counted_qty,
+                        items_per_unit=line.get('ItemsPerUnit', 1),
+                        counter_type=line.get('CounterType'),
+                        counter_id=line.get('CounterID'),
+                        multiple_counter_role=line.get('MultipleCounterRole'),
+                        line_status=line.get('LineStatus'),
+                        project_code=line.get('ProjectCode'),
+                        manufacturer=line.get('Manufacturer'),
+                        supplier_catalog_no=line.get('SupplierCatalogNo'),
+                        preferred_vendor=line.get('PreferredVendor'),
+                        cost_code=line.get('CostCode'),
+                        u_floor=line.get('U_Floor'),
+                        u_rack=line.get('U_Rack'),
+                        u_level=line.get('U_Level'),
+                        freeze=line.get('Freeze', 'tNO'),
+                        u_invcount=line.get('U_InvCount'),
+                        variance=variance
+                    )
+                    db.session.add(local_line)
+                
+                db.session.commit()
+                logging.info(f"✅ Saved SAP counting document {doc_entry} to local database")
+                
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"❌ Error saving counting document to local database: {str(e)}")
+            
             return jsonify({
                 'success': True,
                 'data': invcnt_data
@@ -314,7 +408,7 @@ def get_invcnt_details():
 @app.route('/api/update-inventory-counting', methods=['POST'])
 @login_required
 def update_inventory_counting():
-    """Update Inventory Counting document in SAP B1 via PATCH"""
+    """Update Inventory Counting document in SAP B1 via PATCH and update local database"""
     try:
         data = request.get_json()
         doc_entry = data.get('doc_entry')
@@ -333,6 +427,42 @@ def update_inventory_counting():
         result = sap.update_inventory_counting(doc_entry, document)
         
         if result.get('success'):
+            # Update local database after successful PATCH
+            try:
+                local_doc = SAPInventoryCount.query.filter_by(doc_entry=int(doc_entry)).first()
+                
+                if local_doc:
+                    # Update document header
+                    local_doc.last_updated_at = datetime.utcnow()
+                    
+                    # Update counting lines based on submitted data
+                    lines = document.get('InventoryCountLines', [])
+                    for line_data in lines:
+                        line_number = line_data.get('LineNumber')
+                        local_line = SAPInventoryCountLine.query.filter_by(
+                            count_id=local_doc.id,
+                            line_number=line_number
+                        ).first()
+                        
+                        if local_line:
+                            # Update the counted quantity and status
+                            local_line.uom_counted_quantity = float(line_data.get('UoMCountedQuantity', 0))
+                            local_line.counted = line_data.get('Counted', 'tNO')
+                            
+                            # Recalculate variance
+                            local_line.variance = local_line.uom_counted_quantity - local_line.in_warehouse_quantity
+                            local_line.updated_at = datetime.utcnow()
+                    
+                    db.session.commit()
+                    logging.info(f"✅ Updated local counting document {doc_entry} after PATCH")
+                else:
+                    logging.warning(f"⚠️ Local document {doc_entry} not found for update")
+                    
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"❌ Error updating local counting document: {str(e)}")
+                # Don't fail the request if local update fails
+            
             return jsonify({
                 'success': True,
                 'message': result.get('message'),
