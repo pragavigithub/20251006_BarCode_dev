@@ -337,6 +337,80 @@ class InventoryCountItem(db.Model):
     inventory_count = relationship('InventoryCount', back_populates='items')
 
 
+class SAPInventoryCount(db.Model):
+    """SAP B1 Inventory Counting Documents - Local storage for tracking"""
+    __tablename__ = 'sap_inventory_counts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    doc_entry = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    doc_number = db.Column(db.Integer, nullable=False)
+    series = db.Column(db.Integer, nullable=False)
+    count_date = db.Column(db.DateTime, nullable=True)
+    counting_type = db.Column(db.String(50), nullable=True)
+    count_time = db.Column(db.String(10), nullable=True)
+    single_counter_type = db.Column(db.String(50), nullable=True)
+    document_status = db.Column(db.String(20), nullable=True)
+    remarks = db.Column(db.Text, nullable=True)
+    reference_2 = db.Column(db.String(100), nullable=True)
+    branch_id = db.Column(db.String(10), nullable=True)
+    financial_period = db.Column(db.Integer, nullable=True)
+    counter_type = db.Column(db.String(50), nullable=True)
+    counter_id = db.Column(db.Integer, nullable=True)
+    multiple_counter_role = db.Column(db.String(50), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    loaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', foreign_keys=[user_id])
+    lines = relationship('SAPInventoryCountLine', back_populates='count_document', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<SAPInventoryCount DocEntry={self.doc_entry} DocNum={self.doc_number}>'
+
+
+class SAPInventoryCountLine(db.Model):
+    """SAP B1 Inventory Counting Lines - Local storage for tracking"""
+    __tablename__ = 'sap_inventory_count_lines'
+
+    id = db.Column(db.Integer, primary_key=True)
+    count_id = db.Column(db.Integer, db.ForeignKey('sap_inventory_counts.id'), nullable=False)
+    line_number = db.Column(db.Integer, nullable=False)
+    item_code = db.Column(db.String(50), nullable=False, index=True)
+    item_description = db.Column(db.String(200), nullable=True)
+    warehouse_code = db.Column(db.String(10), nullable=True)
+    bin_entry = db.Column(db.Integer, nullable=True)
+    in_warehouse_quantity = db.Column(db.Float, nullable=True, default=0)
+    counted = db.Column(db.String(5), nullable=True, default='tNO')
+    uom_code = db.Column(db.String(10), nullable=True)
+    bar_code = db.Column(db.String(100), nullable=True)
+    uom_counted_quantity = db.Column(db.Float, nullable=True, default=0)
+    items_per_unit = db.Column(db.Float, nullable=True, default=1)
+    counter_type = db.Column(db.String(50), nullable=True)
+    counter_id = db.Column(db.Integer, nullable=True)
+    multiple_counter_role = db.Column(db.String(50), nullable=True)
+    line_status = db.Column(db.String(20), nullable=True)
+    project_code = db.Column(db.String(50), nullable=True)
+    manufacturer = db.Column(db.Integer, nullable=True)
+    supplier_catalog_no = db.Column(db.String(50), nullable=True)
+    preferred_vendor = db.Column(db.String(50), nullable=True)
+    cost_code = db.Column(db.String(50), nullable=True)
+    u_floor = db.Column(db.String(50), nullable=True)
+    u_rack = db.Column(db.String(50), nullable=True)
+    u_level = db.Column(db.String(50), nullable=True)
+    freeze = db.Column(db.String(5), nullable=True, default='tNO')
+    u_invcount = db.Column(db.String(50), nullable=True)
+    variance = db.Column(db.Float, nullable=True, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    count_document = relationship('SAPInventoryCount', back_populates='lines')
+
+    def __repr__(self):
+        return f'<SAPInventoryCountLine Line={self.line_number} Item={self.item_code}>'
+
+
 class BarcodeLabel(db.Model):
     __tablename__ = 'barcode_labels'
 

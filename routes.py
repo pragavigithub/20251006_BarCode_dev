@@ -752,7 +752,7 @@ def dashboard():
         for count in recent_counts:
             recent_activities.append({
                 'type': 'Inventory Count',
-                'description': f"Count: {count.count_name}",
+                'description': f"Count: {count.count_number}",
                 'created_at': count.created_at,
                 'status': getattr(count, 'status', 'active')
             })
