@@ -9,8 +9,8 @@ class DeliveryDocument(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     so_doc_entry = db.Column(db.Integer, nullable=False, index=True)
-    so_doc_num = db.Column(db.Integer, nullable=False)
-    so_series = db.Column(db.Integer, nullable=False)
+    so_doc_num = db.Column(db.Integer, nullable=True)
+    so_series = db.Column(db.Integer, nullable=True)
     card_code = db.Column(db.String(50), nullable=True)
     card_name = db.Column(db.String(200), nullable=True)
     doc_currency = db.Column(db.String(10), nullable=True)
