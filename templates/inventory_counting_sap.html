@@ -282,7 +282,8 @@ function displayCountingLines(lines) {
     lines.forEach((line, index) => {
         const variance = line.Variance || 0;
         const varianceClass = variance === 0 ? 'text-success' : (variance > 0 ? 'text-primary' : 'text-danger');
-        const countedBadge = line.Counted === 'tYES' ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-warning">No</span>';
+        const countedChecked = line.Counted === 'tYES' ? 'checked' : '';
+        const uomCountedQty = line.UoMCountedQuantity || line.CountedQuantity || 0;
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -292,16 +293,58 @@ function displayCountingLines(lines) {
             <td>${line.WarehouseCode || '-'}</td>
             <td>${line.BinEntry || '-'}</td>
             <td>${(line.InWarehouseQuantity || 0).toFixed(2)}</td>
-            <td class="fw-bold">${(line.CountedQuantity || 0).toFixed(2)}</td>
-            <td class="${varianceClass} fw-bold">${variance.toFixed(2)}</td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm counted-qty-input" 
+                       data-line-index="${index}"
+                       value="${uomCountedQty}" 
+                       step="0.01"
+                       style="width: 120px;"
+                       onchange="updateCountedQuantity(${index}, this.value)">
+            </td>
+            <td class="${varianceClass} fw-bold" id="variance-${index}">${variance.toFixed(2)}</td>
             <td>${line.UoMCode || '-'}</td>
-            <td>${countedBadge}</td>
+            <td>
+                <div class="form-check">
+                    <input type="checkbox" 
+                           class="form-check-input counted-checkbox" 
+                           data-line-index="${index}"
+                           ${countedChecked}
+                           onchange="updateCountedStatus(${index}, this.checked)">
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
     
     document.getElementById('countingLines').style.display = 'block';
     feather.replace();
+}
+
+function updateCountedQuantity(lineIndex, newQty) {
+    if (countingLines[lineIndex]) {
+        const qty = parseFloat(newQty) || 0;
+        const inWhQty = countingLines[lineIndex].InWarehouseQuantity || 0;
+        const variance = qty - inWhQty;
+        
+        countingLines[lineIndex].UoMCountedQuantity = qty;
+        countingLines[lineIndex].CountedQuantity = qty;
+        countingLines[lineIndex].Variance = variance;
+        
+        // Update variance display
+        const varianceCell = document.getElementById(`variance-${lineIndex}`);
+        if (varianceCell) {
+            const varianceClass = variance === 0 ? 'text-success' : (variance > 0 ? 'text-primary' : 'text-danger');
+            varianceCell.className = `${varianceClass} fw-bold`;
+            varianceCell.textContent = variance.toFixed(2);
+        }
+    }
+}
+
+function updateCountedStatus(lineIndex, isCounted) {
+    if (countingLines[lineIndex]) {
+        countingLines[lineIndex].Counted = isCounted ? 'tYES' : 'tNO';
+    }
 }
 
 function showLoading(show) {
@@ -345,13 +388,85 @@ async function submitCounting() {
         return;
     }
     
-    if (!confirm('Submit this counting to SAP B1?')) {
+    if (!confirm('Submit this counting to SAP B1? This will update the counted quantities and statuses.')) {
         return;
     }
     
-    // Here you would implement the actual submission logic
-    // This would depend on your requirements for updating the counting document
-    alert('Counting submission functionality will be implemented based on your requirements');
+    showLoading(true);
+    hideError();
+    
+    try {
+        // Prepare the payload with updated counting lines
+        const payload = {
+            doc_entry: currentDocument.DocumentEntry,
+            document: {
+                DocumentEntry: currentDocument.DocumentEntry,
+                DocumentNumber: currentDocument.DocumentNumber,
+                Series: currentDocument.Series,
+                CountDate: currentDocument.CountDate,
+                CountTime: currentDocument.CountTime,
+                SingleCounterType: currentDocument.SingleCounterType,
+                SingleCounterID: currentDocument.SingleCounterID,
+                DocumentStatus: currentDocument.DocumentStatus,
+                BranchID: currentDocument.BranchID,
+                DocObjectCodeEx: currentDocument.DocObjectCodeEx,
+                FinancialPeriod: currentDocument.FinancialPeriod,
+                PeriodIndicator: currentDocument.PeriodIndicator,
+                CountingType: currentDocument.CountingType,
+                InventoryCountingLines: countingLines.map(line => ({
+                    DocumentEntry: line.DocumentEntry,
+                    LineNumber: line.LineNumber,
+                    ItemCode: line.ItemCode,
+                    ItemDescription: line.ItemDescription,
+                    Freeze: line.Freeze,
+                    WarehouseCode: line.WarehouseCode,
+                    BinEntry: line.BinEntry,
+                    InWarehouseQuantity: line.InWarehouseQuantity,
+                    Counted: line.Counted,  // Updated value
+                    UoMCode: line.UoMCode,
+                    BarCode: line.BarCode,
+                    UoMCountedQuantity: line.UoMCountedQuantity,  // Updated value
+                    ItemsPerUnit: line.ItemsPerUnit,
+                    CountedQuantity: line.CountedQuantity,
+                    Variance: line.Variance,
+                    VariancePercentage: line.VariancePercentage,
+                    VisualOrder: line.VisualOrder,
+                    LineStatus: line.LineStatus,
+                    CounterType: line.CounterType,
+                    CounterID: line.CounterID,
+                    MultipleCounterRole: line.MultipleCounterRole,
+                    InventoryCountingLineUoMs: line.InventoryCountingLineUoMs || [],
+                    InventoryCountingSerialNumbers: line.InventoryCountingSerialNumbers || [],
+                    InventoryCountingBatchNumbers: line.InventoryCountingBatchNumbers || []
+                })),
+                InventoryCountingDocumentReferencesCollection: currentDocument.InventoryCountingDocumentReferencesCollection || []
+            }
+        };
+        
+        const response = await fetch('/api/update-inventory-counting', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Counting updated successfully in SAP B1!\n\nDocument Entry: ' + currentDocument.DocumentEntry);
+            // Reload the document to show updated values
+            await loadCountingDocument();
+        } else {
+            showError('Failed to update counting: ' + (data.error || 'Unknown error'));
+        }
+        
+    } catch (error) {
+        console.error('Error submitting counting:', error);
+        showError('An error occurred while submitting the counting: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
 }
 </script>
 {% endblock %}

@@ -2262,6 +2262,54 @@ class SAPIntegration:
                 'error': error_msg
             }
 
+    def update_inventory_counting(self, doc_entry, counting_document):
+        """Update inventory counting document in SAP B1 via PATCH API"""
+        if not self.ensure_logged_in():
+            # Return success for offline mode with mock response
+            return {
+                'success': True,
+                'message': f'Inventory counting {doc_entry} updated (offline mode)',
+                'sap_response': {'DocumentEntry': doc_entry}
+            }
+
+        try:
+            # Build the PATCH URL with the document entry
+            url = f"{self.base_url}/b1s/v1/InventoryCountings({doc_entry})"
+            
+            # Prepare the JSON payload - use the exact structure provided by the user
+            payload = counting_document
+            
+            # Execute PATCH request to SAP B1
+            logging.info(f"Sending PATCH request to {url}")
+            logging.info(f"Payload: {json.dumps(payload, indent=2)}")
+            
+            response = self.session.patch(url, json=payload, timeout=30)
+            
+            if response.status_code == 204:
+                # SAP B1 returns 204 No Content for successful PATCH
+                logging.info(f"Successfully updated inventory counting {doc_entry} in SAP B1")
+                return {
+                    'success': True,
+                    'message': f'Inventory counting {doc_entry} updated successfully',
+                    'sap_response': {'DocumentEntry': doc_entry}
+                }
+            else:
+                error_msg = f"SAP B1 PATCH failed with status {response.status_code}: {response.text}"
+                logging.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'sap_response': response.text
+                }
+                
+        except Exception as e:
+            error_msg = f"Error updating inventory counting in SAP B1: {str(e)}"
+            logging.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg
+            }
+
     def get_warehouse_business_place_id(self, warehouse_code):
         """Get BusinessPlaceID for a warehouse from SAP B1"""
         if not self.ensure_logged_in():

@@ -311,6 +311,48 @@ def get_invcnt_details():
             'error': str(e)
         }), 500
 
+@app.route('/api/update-inventory-counting', methods=['POST'])
+@login_required
+def update_inventory_counting():
+    """Update Inventory Counting document in SAP B1 via PATCH"""
+    try:
+        data = request.get_json()
+        doc_entry = data.get('doc_entry')
+        document = data.get('document')
+        
+        if not doc_entry or not document:
+            return jsonify({
+                'success': False,
+                'error': 'Both doc_entry and document are required'
+            }), 400
+        
+        # Initialize SAP integration
+        sap = SAPIntegration()
+        
+        # Call the PATCH method
+        result = sap.update_inventory_counting(doc_entry, document)
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'message': result.get('message'),
+                'doc_entry': doc_entry,
+                'sap_response': result.get('sap_response')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error'),
+                'sap_response': result.get('sap_response')
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"Error in update_inventory_counting API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/get-po-by-doc-entry', methods=['POST'])
 @login_required
 def get_po_by_doc_entry():
