@@ -1806,3 +1806,51 @@ def revalidate_serial_number(serial_id):
         db.session.rollback()
         logging.error(f"Error re-validating serial number: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@transfer_bp.route('/items/<int:item_id>/generate-qr-labels', methods=['GET'])
+@login_required
+def get_transfer_item_for_qr(item_id):
+    """Get transfer item details for generating individual QR labels"""
+    try:
+        item = InventoryTransferItem.query.get_or_404(item_id)
+        transfer = item.inventory_transfer
+        
+        # Check permissions
+        if transfer.user_id != current_user.id and current_user.role not in ['admin', 'manager', 'qc']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Extract warehouse codes
+        from_warehouse = item.from_bin.split('-')[0] if item.from_bin and '-' in item.from_bin else (item.from_bin[:4] if item.from_bin else transfer.from_warehouse or 'N/A')
+        to_warehouse = item.to_bin.split('-')[0] if item.to_bin and '-' in item.to_bin else (item.to_bin[:4] if item.to_bin else transfer.to_warehouse or 'N/A')
+        
+        # Generate individual labels based on quantity
+        labels = []
+        quantity = int(item.quantity)
+        
+        for i in range(quantity):
+            label_data = {
+                'item_code': item.item_code,
+                'item_name': item.item_name,
+                'transfer_number': transfer.transfer_request_number,
+                'from_warehouse': from_warehouse,
+                'to_warehouse': to_warehouse,
+                'from_bin': item.from_bin or 'N/A',
+                'to_bin': item.to_bin or 'N/A',
+                'batch_number': item.batch_number or '',
+                'unit_number': i + 1,
+                'total_units': quantity,
+                'uom': item.unit_of_measure or 'EA'
+            }
+            labels.append(label_data)
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'item_code': item.item_code,
+            'item_name': item.item_name,
+            'quantity': quantity
+        })
+        
+    except Exception as e:
+        logging.error(f"Error generating QR labels for transfer item {item_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
