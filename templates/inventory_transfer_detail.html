@@ -130,17 +130,29 @@
                                             <button class="btn btn-sm btn-primary" onclick="editItem({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}', {{ item.quantity }}, '{{ item.unit_of_measure }}', '{{ item.from_bin }}', '{{ item.to_bin }}', '{{ item.batch_number or '' }}')">
                                                 <i data-feather="edit"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-success" onclick="generateTransferQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ transfer.id }}, '{{ transfer.transfer_request_number }}')">
+                                            {% set from_wh = item.from_bin.split('-')[0] if item.from_bin and '-' in item.from_bin else (item.from_bin[:4] if item.from_bin else 'N/A') %}
+                                            {% set to_wh = item.to_bin.split('-')[0] if item.to_bin and '-' in item.to_bin else (item.to_bin[:4] if item.to_bin else 'N/A') %}
+                                            <button class="btn btn-sm btn-success" onclick="generateTransferQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ transfer.id }}, '{{ transfer.transfer_request_number }}', '{{ from_wh }}', '{{ to_wh }}')">
                                                 <i data-feather="maximize"></i> QR
+                                            </button>
+                                            <button class="btn btn-sm btn-info" onclick="generateIndividualTransferQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                                <i data-feather="grid"></i> Print {{ item.quantity|int }} Labels
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="removeItem({{ item.id }})">
                                                 <i data-feather="trash-2"></i>
                                             </button>
                                         </div>
                                         {% else %}
-                                        <button class="btn btn-sm btn-success" onclick="generateTransferQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ transfer.id }}, '{{ transfer.transfer_request_number }}')">
-                                            <i data-feather="maximize"></i> Print QR
-                                        </button>
+                                        <div class="btn-group">
+                                            {% set from_wh = item.from_bin.split('-')[0] if item.from_bin and '-' in item.from_bin else (item.from_bin[:4] if item.from_bin else 'N/A') %}
+                                            {% set to_wh = item.to_bin.split('-')[0] if item.to_bin and '-' in item.to_bin else (item.to_bin[:4] if item.to_bin else 'N/A') %}
+                                            <button class="btn btn-sm btn-success" onclick="generateTransferQRLabel('{{ item.item_code }}', '{{ item.item_name }}', '{{ item.batch_number or '' }}', {{ transfer.id }}, '{{ transfer.transfer_request_number }}', '{{ from_wh }}', '{{ to_wh }}')">
+                                                <i data-feather="maximize"></i> Print QR
+                                            </button>
+                                            <button class="btn btn-sm btn-info" onclick="generateIndividualTransferQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                                <i data-feather="grid"></i> Print {{ item.quantity|int }} Labels
+                                            </button>
+                                        </div>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -652,13 +664,15 @@ function scanBarcode(targetInputId, callback) {
 }
 
 // Generate Transfer QR Label
-function generateTransferQRLabel(itemCode, itemName, batchNumber, transferId, transferNumber) {
+function generateTransferQRLabel(itemCode, itemName, batchNumber, transferId, transferNumber, fromWarehouse, toWarehouse) {
     const data = {
         item_code: itemCode,
         item_name: itemName,
         batch_number: batchNumber,
         transfer_id: transferId,
-        transfer_number: transferNumber
+        transfer_number: transferNumber,
+        from_warehouse: fromWarehouse || 'N/A',
+        to_warehouse: toWarehouse || 'N/A'
     };
     
     fetch('/api/generate-transfer-qr-label', {
@@ -703,6 +717,8 @@ function showTransferQRCodeModal(qrData, labelInfo) {
                                 <p><strong>Item Code:</strong> <span id="transfer-qr-item-code"></span></p>
                                 <p><strong>Transfer Number:</strong> <span id="transfer-qr-number"></span></p>
                                 <p><strong>Item Name:</strong> <span id="transfer-qr-item-name"></span></p>
+                                <p><strong>From Warehouse:</strong> <span id="transfer-qr-from-warehouse"></span></p>
+                                <p><strong>To Warehouse:</strong> <span id="transfer-qr-to-warehouse"></span></p>
                                 <p><strong>Batch Number:</strong> <span id="transfer-qr-batch-number"></span></p>
                             </div>
                         </div>
@@ -721,6 +737,8 @@ function showTransferQRCodeModal(qrData, labelInfo) {
     document.getElementById('transfer-qr-item-code').textContent = labelInfo.item_code;
     document.getElementById('transfer-qr-number').textContent = labelInfo.transfer_number;
     document.getElementById('transfer-qr-item-name').textContent = labelInfo.item_name;
+    document.getElementById('transfer-qr-from-warehouse').textContent = labelInfo.from_warehouse || 'N/A';
+    document.getElementById('transfer-qr-to-warehouse').textContent = labelInfo.to_warehouse || 'N/A';
     document.getElementById('transfer-qr-batch-number').textContent = labelInfo.batch_number || 'N/A';
     
     // Generate QR code
