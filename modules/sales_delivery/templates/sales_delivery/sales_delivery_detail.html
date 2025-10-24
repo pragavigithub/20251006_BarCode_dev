@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Delivery Note - SO {{ delivery.so_doc_num }}{% endblock %}
+{% block title %}Delivery Note - SO {{ delivery.so_doc_num or 'None' }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">Delivery Note</h1>
-            <p class="text-muted mb-0">Sales Order: <strong>{{ delivery.so_doc_num }}</strong></p>
+            <p class="text-muted mb-0">Sales Order: <strong>{{ delivery.so_doc_num or 'None' }}</strong></p>
         </div>
         <div>
             <a href="{{ url_for('sales_delivery.index') }}" class="btn btn-secondary">
@@ -42,19 +42,19 @@
                     <table class="table table-sm">
                         <tr>
                             <th width="40%">Customer Code:</th>
-                            <td>{{ delivery.card_code }}</td>
+                            <td>{{ delivery.card_code or so_data.CardCode or 'None' }}</td>
                         </tr>
                         <tr>
                             <th>Customer Name:</th>
-                            <td>{{ delivery.card_name }}</td>
+                            <td>{{ delivery.card_name or so_data.CardName or 'None' }}</td>
                         </tr>
                         <tr>
                             <th>Document Number:</th>
-                            <td>{{ delivery.so_doc_num }}</td>
+                            <td>{{ delivery.so_doc_num or so_data.DocNum or 'None' }}</td>
                         </tr>
                         <tr>
                             <th>Currency:</th>
-                            <td>{{ delivery.doc_currency or 'INR' }}</td>
+                            <td>{{ delivery.doc_currency or so_data.DocCurrency or 'INR' }}</td>
                         </tr>
                         <tr>
                             <th>Status:</th>
@@ -230,7 +230,7 @@
                     <div class="mb-3">
                         <label for="quantity" class="form-label">Quantity <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" id="quantity" step="0.01" min="0.01" required>
-                        <small class="form-text text-muted">Maximum: <span id="maxQty">0</span></small>
+                        <small class="form-text text-muted">Open Quantity: <span id="maxQty">0</span></small>
                     </div>
                     <div id="batchSerialSection" class="d-none">
                         <div id="batchSection" class="mb-3 d-none">
@@ -275,21 +275,55 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Ensure QR modal appears above all content */
+#qrModal {
+    z-index: 9999 !important;
+}
+.modal-backdrop.show {
+    z-index: 9998 !important;
+}
+#qrLabelInfo {
+    text-align: left;
+    font-size: 16px;
+}
+#qrLabelInfo p {
+    margin-bottom: 8px;
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const deliveryId = {{ delivery.id }};
+const soLines = {{ so_data.DocumentLines|tojson }};
+
+// Track cumulative quantities added per line
+const addedQuantities = {};
+
+// Initialize tracking from existing items
+{% for item in delivery.items %}
+if (!addedQuantities[{{ item.base_line }}]) {
+    addedQuantities[{{ item.base_line }}] = 0;
+}
+addedQuantities[{{ item.base_line }}] += {{ item.quantity }};
+{% endfor %}
 
 document.getElementById('line_select').addEventListener('change', function() {
     const selected = this.options[this.selectedIndex];
     const itemCode = selected.getAttribute('data-item');
+    const baseLine = parseInt(this.value);
     const openQty = parseFloat(selected.getAttribute('data-open'));
     
-    document.getElementById('maxQty').textContent = openQty;
-    document.getElementById('quantity').max = openQty;
-    document.getElementById('quantity').value = openQty;
+    // Calculate remaining quantity
+    const alreadyAdded = addedQuantities[baseLine] || 0;
+    const remainingQty = openQty - alreadyAdded;
+    
+    document.getElementById('maxQty').textContent = remainingQty.toFixed(2);
+    document.getElementById('quantity').max = remainingQty;
+    document.getElementById('quantity').value = remainingQty;
     
     if (itemCode) {
         fetch('{{ url_for("sales_delivery.api_validate_item") }}', {
@@ -322,22 +356,32 @@ document.getElementById('line_select').addEventListener('change', function() {
 
 function addItem() {
     const lineSelect = document.getElementById('line_select');
-    const baseLine = lineSelect.value;
+    const baseLine = parseInt(lineSelect.value);
     const itemCode = lineSelect.options[lineSelect.selectedIndex].getAttribute('data-item');
-    const quantity = document.getElementById('quantity').value;
+    const quantity = parseFloat(document.getElementById('quantity').value);
     const batchNumber = document.getElementById('batch_number').value;
     const serialNumber = document.getElementById('serial_number').value;
     
-    if (!baseLine || !quantity) {
+    if (isNaN(baseLine) || !quantity) {
         alert('Please fill all required fields');
+        return;
+    }
+    
+    // Validate quantity doesn't exceed open quantity
+    const openQty = parseFloat(lineSelect.options[lineSelect.selectedIndex].getAttribute('data-open'));
+    const alreadyAdded = addedQuantities[baseLine] || 0;
+    const remainingQty = openQty - alreadyAdded;
+    
+    if (quantity > remainingQty) {
+        alert(`Cannot add ${quantity}. Only ${remainingQty.toFixed(2)} remaining for this line.`);
         return;
     }
     
     const data = {
         delivery_id: deliveryId,
-        base_line: parseInt(baseLine),
+        base_line: baseLine,
         item_code: itemCode,
-        quantity: parseFloat(quantity),
+        quantity: quantity,
         batch_number: batchNumber,
         serial_number: serialNumber
     };

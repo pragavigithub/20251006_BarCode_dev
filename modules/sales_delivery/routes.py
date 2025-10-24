@@ -227,6 +227,26 @@ def api_submit_delivery():
     
     sap = SAPIntegration()
     
+    # Ensure we have CardCode and other SO details
+    card_code = delivery.card_code
+    doc_currency = delivery.doc_currency
+    
+    if not card_code:
+        # Fetch from SAP if missing from delivery record
+        logging.info(f"CardCode missing, fetching from SAP for DocEntry: {delivery.so_doc_entry}")
+        so_data = sap.get_sales_order_by_doc_entry(delivery.so_doc_entry)
+        if so_data:
+            card_code = so_data.get('CardCode')
+            if not doc_currency:
+                doc_currency = so_data.get('DocCurrency', 'INR')
+            # Update delivery record with missing data
+            delivery.card_code = card_code
+            delivery.card_name = so_data.get('CardName')
+            delivery.doc_currency = doc_currency
+            db.session.commit()
+        else:
+            return jsonify({'success': False, 'error': 'Unable to fetch Sales Order details from SAP'})
+    
     document_lines = []
     for item in items:
         line_data = {
@@ -254,9 +274,9 @@ def api_submit_delivery():
         document_lines.append(line_data)
     
     delivery_data = {
-        'CardCode': delivery.card_code,
+        'CardCode': card_code,
         'DocDate': delivery.doc_date.strftime('%Y-%m-%d') if delivery.doc_date else datetime.now().strftime('%Y-%m-%d'),
-        'DocCurrency': delivery.doc_currency or 'INR',
+        'DocCurrency': doc_currency or 'INR',
         'Series': delivery.delivery_series or delivery.so_series,
         'Comments': delivery.remarks or f'Delivery against SO {delivery.so_doc_num}',
         'DocumentLines': document_lines
