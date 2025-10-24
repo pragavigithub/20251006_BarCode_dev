@@ -381,12 +381,39 @@ class SAPIntegration:
         return []
 
     def get_so_series(self):
-        """Get Sales Order series from SAP B1 - tries v2 Series endpoint, falls back to v1 Orders query"""
+        """Get Sales Order series from SAP B1 - tries SQL query first, falls back to OData endpoints"""
         if not self.ensure_logged_in():
             logging.warning("SAP B1 not available, returning empty series list")
             return []
 
-        # Try Method 1: v2 Series endpoint (best - gets all series with proper names)
+        # Try Method 1: SQL Query Get_SO_Series (preferred - uses custom SAP query)
+        try:
+            url_sql = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Series')/List"
+            logging.debug(f"🔍 Attempting SQL query Get_SO_Series: {url_sql}")
+            
+            response = self.session.post(url_sql, json={}, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                series_data = data.get('value', [])
+                
+                series_list = [
+                    {
+                        'Series': item.get('Series'),
+                        'Name': item.get('SeriesName', f"Series {item.get('Series')}")
+                    }
+                    for item in series_data
+                ]
+                
+                logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP (SQL Query)")
+                return series_list
+            else:
+                logging.info(f"SQL query Get_SO_Series not available ({response.status_code}), trying fallback methods")
+                
+        except Exception as e:
+            logging.debug(f"SQL query Get_SO_Series failed: {str(e)}, trying fallback")
+
+        # Try Method 2: v2 Series endpoint
         try:
             url_v2 = f"{self.base_url}/b1s/v2/Series?$filter=ObjectCode eq '17'&$select=Series,SeriesName"
             logging.debug(f"Attempting v2 Series endpoint: {url_v2}")
@@ -408,12 +435,12 @@ class SAPIntegration:
                 logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP (v2 API)")
                 return series_list
             else:
-                logging.info(f"v2 Series endpoint not available ({response.status_code}), trying fallback method")
+                logging.info(f"v2 Series endpoint not available ({response.status_code}), trying final fallback")
                 
         except Exception as e:
-            logging.info(f"v2 Series endpoint failed: {str(e)}, trying fallback method")
+            logging.debug(f"v2 Series endpoint failed: {str(e)}, trying final fallback")
         
-        # Fallback Method 2: Query v1 Orders to extract series (works but limited to recent orders)
+        # Fallback Method 3: Query v1 Orders to extract series (works but limited to recent orders)
         try:
             url_v1 = f"{self.base_url}/b1s/v1/Orders?$select=Series&$top=200&$orderby=DocEntry desc"
             logging.debug(f"Using fallback v1 Orders query: {url_v1}")
@@ -433,7 +460,7 @@ class SAPIntegration:
                 # Convert to list of dicts
                 series_list = [{'Series': s, 'Name': f'Series {s}'} for s in sorted(series_set)]
                 
-                logging.warning(f"⚠️ Retrieved {len(series_list)} SO series using fallback method (v1 Orders). For better results, enable SAP B1 Service Layer v2 API or setup SQL queries.")
+                logging.warning(f"⚠️ Retrieved {len(series_list)} SO series using fallback method (v1 Orders). For best results, setup SQL query 'Get_SO_Series' in SAP B1.")
                 return series_list
             else:
                 logging.error(f"Failed to get SO series via fallback: {response.status_code} - {response.text}")
@@ -449,10 +476,36 @@ class SAPIntegration:
             logging.warning("SAP B1 not available, cannot get DocEntry")
             return None
 
+        # Try Method 1: SQL Query Get_SO_Details (preferred - uses custom SAP query)
         try:
-            # Use OData filter to find Sales Order by Series and DocNum
+            url_sql = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Details')/List"
+            param_list = f"SONumber='{doc_num}'&Series='{series}'"
+            body = {"ParamList": param_list}
+            
+            logging.debug(f"🔍 Attempting SQL query Get_SO_Details: {url_sql} with params: {param_list}")
+            
+            response = self.session.post(url_sql, json=body, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('value', [])
+                if results:
+                    doc_entry = results[0].get('DocEntry')
+                    logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num} (SQL Query)")
+                    return doc_entry
+                else:
+                    logging.warning(f"No SO found for Series: {series}, DocNum: {doc_num}")
+                    return None
+            else:
+                logging.info(f"SQL query Get_SO_Details not available ({response.status_code}), trying OData fallback")
+                
+        except Exception as e:
+            logging.debug(f"SQL query Get_SO_Details failed: {str(e)}, trying OData fallback")
+
+        # Try Method 2: OData filter (fallback)
+        try:
             url = f"{self.base_url}/b1s/v1/Orders?$filter=Series eq {series} and DocNum eq {doc_num}&$select=DocEntry,DocNum"
-            logging.debug(f"Fetching SO DocEntry with URL: {url}")
+            logging.debug(f"Fetching SO DocEntry with OData filter: {url}")
             
             response = self.session.get(url, timeout=30)
             
@@ -461,7 +514,7 @@ class SAPIntegration:
                 results = data.get('value', [])
                 if results:
                     doc_entry = results[0].get('DocEntry')
-                    logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num}")
+                    logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num} (OData)")
                     return doc_entry
                 else:
                     logging.warning(f"No SO found for Series: {series}, DocNum: {doc_num}")
