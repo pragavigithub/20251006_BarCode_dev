@@ -276,13 +276,59 @@
     </div>
 </div>
 
+<!-- Barcode Scan Modal -->
+<div class="modal fade" id="scanModal" tabindex="-1" aria-labelledby="scanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scanModalLabel">Scan Barcode</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="stopScanning()"></button>
+            </div>
+            <div class="modal-body">
+                <div class="scanner-container mb-3">
+                    <video id="scanVideo" class="w-100" autoplay playsinline style="max-height: 400px; background: #000;"></video>
+                    <div class="scanner-overlay"></div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Point your camera at a barcode or QR code. Supported formats: Item Code, DELIVERY:{ItemCode}-{Batch/Serial}
+                </div>
+                <div id="scanResult" class="alert alert-success d-none"></div>
+                <div id="scanError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="stopScanning()" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" onclick="manualBarcodeEntry()">
+                    <i class="fas fa-keyboard"></i> Manual Entry
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Ensure modals appear above all content and are clickable */
-#addItemModal, #qrModal {
+#addItemModal, #qrModal, #scanModal {
     z-index: 9999 !important;
 }
 .modal-backdrop {
     z-index: 9998 !important;
+}
+/* Scanner container styles */
+.scanner-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+.scanner-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%;
+    height: 30%;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
 }
 #qrLabelInfo {
     text-align: left;
@@ -558,8 +604,235 @@ function submitDelivery() {
     });
 }
 
+let scanModalInstance = null;
+let isScanning = false;
+
 function openScanModal() {
-    alert('Barcode scanning feature will be implemented in the next update');
+    const scanModal = document.getElementById('scanModal');
+    if (!scanModal) {
+        console.error('Scan modal not found');
+        return;
+    }
+    
+    // Clear previous scan results
+    const scanResult = document.getElementById('scanResult');
+    const scanError = document.getElementById('scanError');
+    if (scanResult) scanResult.classList.add('d-none');
+    if (scanError) scanError.classList.add('d-none');
+    
+    // Show the modal
+    scanModalInstance = new bootstrap.Modal(scanModal);
+    scanModalInstance.show();
+    
+    // Start scanning when modal is shown
+    scanModal.addEventListener('shown.bs.modal', function () {
+        startScanning();
+    }, { once: true });
+}
+
+async function startScanning() {
+    if (isScanning) return;
+    
+    const videoElement = document.getElementById('scanVideo');
+    const scanError = document.getElementById('scanError');
+    
+    if (!videoElement) {
+        console.error('Video element not found');
+        return;
+    }
+    
+    try {
+        isScanning = true;
+        
+        // Check if barcodeScanner is available
+        if (!window.barcodeScanner) {
+            throw new Error('Barcode scanner not initialized. Please refresh the page.');
+        }
+        
+        console.log('Starting barcode scan...');
+        
+        // Start the scan using global barcode scanner
+        await window.barcodeScanner.startScan(videoElement, handleScannedBarcode);
+        
+        console.log('Barcode scanner started successfully');
+        
+    } catch (error) {
+        console.error('Error starting scanner:', error);
+        if (scanError) {
+            scanError.textContent = 'Camera Error: ' + error.message + '. Please use Manual Entry instead.';
+            scanError.classList.remove('d-none');
+        }
+        isScanning = false;
+        
+        // Offer manual entry as fallback
+        if (error.message.includes('Camera') || error.message.includes('HTTPS')) {
+            setTimeout(() => manualBarcodeEntry(), 1000);
+        }
+    }
+}
+
+function stopScanning() {
+    if (window.barcodeScanner && isScanning) {
+        window.barcodeScanner.stopScan();
+        isScanning = false;
+        console.log('Barcode scanner stopped');
+    }
+    
+    if (scanModalInstance) {
+        scanModalInstance.hide();
+        scanModalInstance = null;
+    }
+}
+
+function handleScannedBarcode(code) {
+    console.log('Barcode scanned:', code);
+    
+    const scanResult = document.getElementById('scanResult');
+    const scanError = document.getElementById('scanError');
+    
+    // Hide previous messages
+    if (scanResult) scanResult.classList.add('d-none');
+    if (scanError) scanError.classList.add('d-none');
+    
+    // Parse the barcode
+    const parsed = parseBarcodeFormat(code);
+    
+    if (!parsed.itemCode) {
+        if (scanError) {
+            scanError.textContent = 'Invalid barcode format. Expected: Item Code or DELIVERY:{ItemCode}-{Batch/Serial}';
+            scanError.classList.remove('d-none');
+        }
+        return;
+    }
+    
+    // Find matching SO line
+    const lineSelect = document.getElementById('line_select');
+    if (!lineSelect) {
+        console.error('Line select not found');
+        return;
+    }
+    
+    let matchingLine = null;
+    for (let option of lineSelect.options) {
+        const itemCode = option.getAttribute('data-item');
+        if (itemCode === parsed.itemCode) {
+            matchingLine = option;
+            break;
+        }
+    }
+    
+    if (!matchingLine) {
+        if (scanError) {
+            scanError.textContent = `Item ${parsed.itemCode} not found in this Sales Order`;
+            scanError.classList.remove('d-none');
+        }
+        return;
+    }
+    
+    // Stop scanning
+    stopScanning();
+    
+    // Show success message
+    if (scanResult) {
+        scanResult.textContent = `Found: ${parsed.itemCode} - Adding to delivery...`;
+        scanResult.classList.remove('d-none');
+    }
+    
+    // Auto-fill and add the item
+    setTimeout(() => {
+        autoAddScannedItem(matchingLine, parsed);
+    }, 500);
+}
+
+function parseBarcodeFormat(code) {
+    const result = {
+        itemCode: null,
+        batchSerial: null
+    };
+    
+    // Format 1: DELIVERY:{ItemCode}-{Batch/Serial}
+    if (code.startsWith('DELIVERY:')) {
+        const parts = code.substring(9).split('-');
+        if (parts.length >= 1) {
+            result.itemCode = parts[0];
+            if (parts.length >= 2) {
+                result.batchSerial = parts.slice(1).join('-');
+            }
+        }
+    }
+    // Format 2: Plain item code
+    else {
+        result.itemCode = code;
+    }
+    
+    return result;
+}
+
+async function autoAddScannedItem(lineOption, parsed) {
+    const baseLine = parseInt(lineOption.value);
+    const itemCode = parsed.itemCode;
+    const openQty = parseFloat(lineOption.getAttribute('data-open'));
+    
+    // Check if already added
+    const alreadyAdded = addedQuantities[baseLine] || 0;
+    const remainingQty = openQty - alreadyAdded;
+    
+    if (remainingQty <= 0) {
+        alert(`Line ${baseLine} (${itemCode}) has no remaining quantity to deliver`);
+        return;
+    }
+    
+    // Default quantity to 1 or remaining, whichever is smaller
+    const quantity = Math.min(1, remainingQty);
+    
+    // Prepare item data
+    const itemData = {
+        delivery_id: deliveryId,
+        base_line: baseLine,
+        quantity: quantity
+    };
+    
+    // Add batch/serial if provided
+    if (parsed.batchSerial) {
+        // Try to determine if it's a batch or serial number
+        // For now, we'll check the item's manage settings via SAP
+        // But as a quick solution, if batch/serial is provided, we'll add it as batch
+        itemData.batch_number = parsed.batchSerial;
+    }
+    
+    // Submit to server
+    try {
+        const response = await fetch('{{ url_for("sales_delivery.api_add_item") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(itemData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✓ Added: ${itemCode} x${quantity}`);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error adding item:', error);
+        alert('Error adding item: ' + error.message);
+    }
+}
+
+function manualBarcodeEntry() {
+    // Stop current scanning
+    stopScanning();
+    
+    // Prompt for barcode
+    const barcode = prompt('Enter barcode or item code:');
+    if (barcode && barcode.trim()) {
+        handleScannedBarcode(barcode.trim());
+    }
 }
 </script>
 {% endblock %}
