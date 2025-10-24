@@ -503,26 +503,26 @@ class SAPIntegration:
             logging.debug(f"SQL query Get_SO_Details failed: {str(e)}, trying OData fallback")
 
         # Try Method 2: OData filter (fallback)
-        try:
-            url = f"{self.base_url}/b1s/v1/Orders?$filter=Series eq {series} and DocNum eq {doc_num}&$select=DocEntry,DocNum"
-            logging.debug(f"Fetching SO DocEntry with OData filter: {url}")
-            
-            response = self.session.get(url, timeout=30)
-            
-            if response.status_code == 200:
-                data = response.json()
-                results = data.get('value', [])
-                if results:
-                    doc_entry = results[0].get('DocEntry')
-                    logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num} (OData)")
-                    return doc_entry
-                else:
-                    logging.warning(f"No SO found for Series: {series}, DocNum: {doc_num}")
-                    return None
-            else:
-                logging.warning(f"Failed to get SO DocEntry: {response.status_code} - {response.text}")
-                return None
-                
+        # try:
+        #     url = f"{self.base_url}/b1s/v1/Orders?$filter=Series eq {series} and DocNum eq {doc_num}&$select=DocEntry,DocNum"
+        #     logging.debug(f"Fetching SO DocEntry with OData filter: {url}")
+        #
+        #     response = self.session.get(url, timeout=30)
+        #
+        #     if response.status_code == 200:
+        #         data = response.json()
+        #         results = data.get('value', [])
+        #         if results:
+        #             doc_entry = results[0].get('DocEntry')
+        #             logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num} (OData)")
+        #             return doc_entry
+        #         else:
+        #             logging.warning(f"No SO found for Series: {series}, DocNum: {doc_num}")
+        #             return None
+        #     else:
+        #         logging.warning(f"Failed to get SO DocEntry: {response.status_code} - {response.text}")
+        #         return None
+        #
         except Exception as e:
             logging.error(f"Error fetching SO DocEntry: {str(e)}")
             return None
@@ -541,7 +541,7 @@ class SAPIntegration:
                 data = response.json()
                 if data.get('value'):
                     so_data = data['value'][0]
-                    
+                    print(so_data)
                     # Filter for open documents only
                     if so_data.get('DocumentStatus') != 'bost_Open':
                         logging.warning(f"Sales Order {doc_entry} is not open (Status: {so_data.get('DocumentStatus')})")
