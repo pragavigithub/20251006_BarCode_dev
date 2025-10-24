@@ -291,6 +291,54 @@
 #qrLabelInfo p {
     margin-bottom: 8px;
 }
+
+/* Print-specific styles - only show QR modal content */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    
+    #qrModal,
+    #qrModal * {
+        visibility: visible;
+    }
+    
+    #qrModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        z-index: 1;
+    }
+    
+    #qrModal .modal-dialog {
+        max-width: 100%;
+        margin: 0;
+    }
+    
+    #qrModal .modal-header,
+    #qrModal .modal-footer {
+        display: none !important;
+    }
+    
+    #qrModal .modal-content {
+        border: none;
+        box-shadow: none;
+    }
+    
+    #qrModal .modal-body {
+        padding: 20px;
+    }
+    
+    #qrLabelInfo {
+        font-size: 14pt;
+        font-weight: bold;
+    }
+    
+    #qrLabelInfo p {
+        margin-bottom: 10pt;
+    }
+}
 </style>
 {% endblock %}
 
@@ -298,7 +346,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const deliveryId = {{ delivery.id }};
-const soLines = {{ so_data.DocumentLines|tojson }};
 
 // Track cumulative quantities added per line
 const addedQuantities = {};
@@ -310,6 +357,15 @@ if (!addedQuantities[{{ item.base_line }}]) {
 }
 addedQuantities[{{ item.base_line }}] += {{ item.quantity }};
 {% endfor %}
+
+// Ensure Bootstrap modals are initialized when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all modals
+    const addItemModalEl = document.getElementById('addItemModal');
+    if (addItemModalEl && typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(addItemModalEl);
+    }
+});
 
 document.getElementById('line_select').addEventListener('change', function() {
     const selected = this.options[this.selectedIndex];
