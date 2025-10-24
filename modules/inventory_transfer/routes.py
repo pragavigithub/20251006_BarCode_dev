@@ -97,6 +97,8 @@ def detail(transfer_id):
                 actual_line_status = 'bost_Close' if remaining_qty <= 0 else 'bost_Open'
                 
                 # Create enhanced item data with calculated values
+                # Note: SAP StockTransferRequest lines typically only have WarehouseCode (destination)
+                # Use header-level FromWarehouse for source warehouse
                 enhanced_item = {
                     'ItemCode': item_code,
                     'ItemDescription': sap_line.get('ItemDescription', ''),
@@ -104,8 +106,8 @@ def detail(transfer_id):
                     'TransferredQuantity': transferred_qty,
                     'RemainingQuantity': remaining_qty,
                     'UnitOfMeasure': sap_line.get('UoMCode', sap_line.get('MeasureUnit', '')),
-                    'FromWarehouseCode': sap_line.get('FromWarehouseCode'),
-                    'ToWarehouseCode': sap_line.get('WarehouseCode'),
+                    'FromWarehouseCode': sap_line.get('FromWarehouseCode') or sap_transfer_data.get('FromWarehouse'),
+                    'ToWarehouseCode': sap_line.get('WarehouseCode') or sap_transfer_data.get('ToWarehouse'),
                     'LineStatus': actual_line_status  # Use calculated status
                 }
                 available_items.append(enhanced_item)
