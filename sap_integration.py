@@ -381,19 +381,30 @@ class SAPIntegration:
         return []
 
     def get_so_series(self):
-        """Get Sales Order series from SAP B1 using Series service"""
+        """Get Sales Order series from SAP B1 by querying Orders"""
         if not self.ensure_logged_in():
             logging.warning("SAP B1 not available, returning empty series list")
             return []
 
         try:
-            # Get series for Sales Order document type (17)
-            url = f"{self.base_url}/b1s/v1/Series?$filter=Document eq '17'&$select=Series,Name"
+            # Query recent Sales Orders to get available series
+            # We get the top 100 orders and extract unique series
+            url = f"{self.base_url}/b1s/v1/Orders?$select=Series&$top=100"
             response = self.session.get(url, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
-                series_list = data.get('value', [])
+                orders = data.get('value', [])
+                
+                # Extract unique series
+                series_set = set()
+                for order in orders:
+                    if 'Series' in order:
+                        series_set.add(order['Series'])
+                
+                # Convert to list of dicts for consistency
+                series_list = [{'Series': s, 'Name': f'Series {s}'} for s in sorted(series_set)]
+                
                 logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP")
                 return series_list
             else:
