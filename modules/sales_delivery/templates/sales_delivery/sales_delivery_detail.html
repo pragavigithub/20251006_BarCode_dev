@@ -36,7 +36,7 @@
         <div class="col-md-6">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Sales Order Details</h6>
+                    <h6 class="breadcrumb-item active">Sales Order Details</h6>
                 </div>
                 <div class="card-body">
                     <table class="table table-sm">
@@ -75,7 +75,7 @@
         <div class="col-md-6">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                    <h6 class="breadcrumb-item active">Quick Actions</h6>
                 </div>
                 <div class="card-body">
                     {% if delivery.status == 'draft' %}
@@ -98,7 +98,7 @@
     <!-- Picked Items -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Picked Items</h6>
+            <h6 class="breadcrumb-item active">Picked Items</h6>
             <span class="badge bg-secondary">{{ delivery.items|length }} items</span>
         </div>
         <div class="card-body">
@@ -167,7 +167,7 @@
     <!-- Open Sales Order Lines -->
     <div class="card shadow">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Available Sales Order Lines</h6>
+            <h6 class="breadcrumb-item active">Available Sales Order Lines</h6>
         </div>
         <div class="card-body">
             <div class="table-responsive">
