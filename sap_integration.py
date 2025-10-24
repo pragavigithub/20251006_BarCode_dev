@@ -381,16 +381,44 @@ class SAPIntegration:
         return []
 
     def get_so_series(self):
-        """Get Sales Order series from SAP B1 by querying Orders"""
+        """Get Sales Order series from SAP B1 - tries v2 Series endpoint, falls back to v1 Orders query"""
         if not self.ensure_logged_in():
             logging.warning("SAP B1 not available, returning empty series list")
             return []
 
+        # Try Method 1: v2 Series endpoint (best - gets all series with proper names)
         try:
-            # Query recent Sales Orders to get available series
-            # We get the top 100 orders and extract unique series
-            url = f"{self.base_url}/b1s/v1/Orders?$select=Series&$top=100"
-            response = self.session.get(url, timeout=30)
+            url_v2 = f"{self.base_url}/b1s/v2/Series?$filter=ObjectCode eq '17'&$select=Series,SeriesName"
+            logging.debug(f"Attempting v2 Series endpoint: {url_v2}")
+            
+            response = self.session.get(url_v2, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                series_data = data.get('value', [])
+                
+                series_list = [
+                    {
+                        'Series': item.get('Series'),
+                        'Name': item.get('SeriesName', f"Series {item.get('Series')}")
+                    }
+                    for item in series_data
+                ]
+                
+                logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP (v2 API)")
+                return series_list
+            else:
+                logging.info(f"v2 Series endpoint not available ({response.status_code}), trying fallback method")
+                
+        except Exception as e:
+            logging.info(f"v2 Series endpoint failed: {str(e)}, trying fallback method")
+        
+        # Fallback Method 2: Query v1 Orders to extract series (works but limited to recent orders)
+        try:
+            url_v1 = f"{self.base_url}/b1s/v1/Orders?$select=Series&$top=200&$orderby=DocEntry desc"
+            logging.debug(f"Using fallback v1 Orders query: {url_v1}")
+            
+            response = self.session.get(url_v1, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -399,20 +427,20 @@ class SAPIntegration:
                 # Extract unique series
                 series_set = set()
                 for order in orders:
-                    if 'Series' in order:
+                    if 'Series' in order and order['Series'] is not None:
                         series_set.add(order['Series'])
                 
-                # Convert to list of dicts for consistency
+                # Convert to list of dicts
                 series_list = [{'Series': s, 'Name': f'Series {s}'} for s in sorted(series_set)]
                 
-                logging.info(f"✅ Retrieved {len(series_list)} SO series from SAP")
+                logging.warning(f"⚠️ Retrieved {len(series_list)} SO series using fallback method (v1 Orders). For better results, enable SAP B1 Service Layer v2 API or setup SQL queries.")
                 return series_list
             else:
-                logging.warning(f"Failed to get SO series: {response.status_code} - {response.text}")
+                logging.error(f"Failed to get SO series via fallback: {response.status_code} - {response.text}")
                 return []
                 
         except Exception as e:
-            logging.error(f"Error fetching SO series: {str(e)}")
+            logging.error(f"Error fetching SO series (fallback method): {str(e)}")
             return []
 
     def get_so_doc_entry(self, series, doc_num):
