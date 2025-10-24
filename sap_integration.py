@@ -381,14 +381,15 @@ class SAPIntegration:
         return []
 
     def get_so_series(self):
-        """Get Sales Order series from SAP B1 using SQLQueries"""
+        """Get Sales Order series from SAP B1 using Series service"""
         if not self.ensure_logged_in():
             logging.warning("SAP B1 not available, returning empty series list")
             return []
 
         try:
-            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Series')/List"
-            response = self.session.post(url, timeout=30)
+            # Get series for Sales Order document type (17)
+            url = f"{self.base_url}/b1s/v1/Series?$filter=Document eq '17'&$select=Series,Name"
+            response = self.session.get(url, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -410,12 +411,11 @@ class SAPIntegration:
             return None
 
         try:
-            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_SO_Details')/List"
-            payload = {
-                "ParamList": f"SONumber='{doc_num}'&Series='{series}'"
-            }
+            # Use OData filter to find Sales Order by Series and DocNum
+            url = f"{self.base_url}/b1s/v1/Orders?$filter=Series eq {series} and DocNum eq {doc_num}&$select=DocEntry,DocNum"
+            logging.debug(f"Fetching SO DocEntry with URL: {url}")
             
-            response = self.session.post(url, json=payload, timeout=30)
+            response = self.session.get(url, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -425,7 +425,7 @@ class SAPIntegration:
                     logging.info(f"✅ Found SO DocEntry: {doc_entry} for Series: {series}, DocNum: {doc_num}")
                     return doc_entry
                 else:
-                    logging.warning(f"No SO DocEntry found for Series: {series}, DocNum: {doc_num}")
+                    logging.warning(f"No SO found for Series: {series}, DocNum: {doc_num}")
                     return None
             else:
                 logging.warning(f"Failed to get SO DocEntry: {response.status_code} - {response.text}")

@@ -29,23 +29,31 @@ def create():
         so_series = request.form.get('so_series')
         so_doc_num = request.form.get('so_doc_num')
         
+        logging.info(f"📋 Creating delivery for SO Series: {so_series}, DocNum: {so_doc_num}")
+        
         if not so_series or not so_doc_num:
             flash('Please select a series and enter a document number', 'error')
             return redirect(url_for('sales_delivery.index'))
         
         sap = SAPIntegration()
         
+        logging.info(f"🔍 Getting DocEntry for SO Series: {so_series}, DocNum: {so_doc_num}")
         doc_entry = sap.get_so_doc_entry(so_series, so_doc_num)
         
         if not doc_entry:
-            flash(f'Sales Order {so_doc_num} not found in series {so_series}', 'error')
+            logging.error(f"❌ DocEntry not found for SO Series: {so_series}, DocNum: {so_doc_num}")
+            flash(f'Sales Order {so_doc_num} not found in series {so_series}. Check SAP connection.', 'error')
             return redirect(url_for('sales_delivery.index'))
         
+        logging.info(f"📥 Loading SO data for DocEntry: {doc_entry}")
         so_data = sap.get_sales_order_by_doc_entry(doc_entry)
         
         if not so_data:
+            logging.error(f"❌ SO data not found for DocEntry: {doc_entry}")
             flash(f'Sales Order {so_doc_num} is not available or has no open lines', 'error')
             return redirect(url_for('sales_delivery.index'))
+        
+        logging.info(f"✅ SO data loaded: CardCode={so_data.get('CardCode')}, CardName={so_data.get('CardName')}, Lines={len(so_data.get('DocumentLines', []))}")
         
         existing = DeliveryDocument.query.filter_by(
             so_doc_entry=doc_entry,
