@@ -27,7 +27,9 @@ def create():
     """Create new delivery note from Sales Order"""
     if request.method == 'POST':
         so_series = request.form.get('so_series')
+        print(so_series)
         so_doc_num = request.form.get('so_doc_num')
+        print(so_doc_num)
         
         logging.info(f"📋 Creating delivery for SO Series: {so_series}, DocNum: {so_doc_num}")
         
@@ -39,7 +41,7 @@ def create():
         
         logging.info(f"🔍 Getting DocEntry for SO Series: {so_series}, DocNum: {so_doc_num}")
         doc_entry = sap.get_so_doc_entry(so_series, so_doc_num)
-        
+        print(doc_entry)
         if not doc_entry:
             logging.error(f"❌ DocEntry not found for SO Series: {so_series}, DocNum: {so_doc_num}")
             flash(f'Sales Order {so_doc_num} not found in series {so_series}. Check SAP connection.', 'error')

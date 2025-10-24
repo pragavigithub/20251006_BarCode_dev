@@ -485,7 +485,6 @@ class SAPIntegration:
             logging.debug(f"🔍 Attempting SQL query Get_SO_Details: {url_sql} with params: {param_list}")
             
             response = self.session.post(url_sql, json=body, timeout=30)
-            
             if response.status_code == 200:
                 data = response.json()
                 results = data.get('value', [])
@@ -536,12 +535,10 @@ class SAPIntegration:
         try:
             url = f"{self.base_url}/b1s/v1/Orders?$filter=DocEntry eq {doc_entry}"
             response = self.session.get(url, timeout=30)
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('value'):
                     so_data = data['value'][0]
-                    print(so_data)
                     # Filter for open documents only
                     if so_data.get('DocumentStatus') != 'bost_Open':
                         logging.warning(f"Sales Order {doc_entry} is not open (Status: {so_data.get('DocumentStatus')})")
@@ -2947,39 +2944,39 @@ class SAPIntegration:
 
         return results
 
-    def get_sales_order_by_doc_entry(self, doc_entry):
-        """Get Sales Order by DocEntry for picklist integration"""
-        if not self.ensure_logged_in():
-            logging.warning("SAP B1 not available for Sales Order lookup")
-            return self._get_mock_sales_order(doc_entry)
-
-        try:
-            url = f"{self.base_url}/b1s/v1/Orders?$filter=DocEntry eq {doc_entry}"
-            logging.info(f"🔍 Fetching Sales Order DocEntry={doc_entry}: {url}")
-            
-            response = self.session.get(url)
-            
-            if response.status_code == 200:
-                data = response.json()
-                orders = data.get('value', [])
-                
-                if orders:
-                    order = orders[0]
-                    logging.info(f"✅ Found Sales Order DocEntry={doc_entry}: {order.get('CardCode')} - {order.get('CardName')}")
-                    return {
-                        'success': True,
-                        'sales_order': order
-                    }
-                else:
-                    logging.warning(f"⚠️ Sales Order DocEntry={doc_entry} not found")
-                    return {'success': False, 'error': f'Sales Order {doc_entry} not found'}
-            else:
-                logging.error(f"❌ Error fetching Sales Order: {response.status_code} - {response.text}")
-                return {'success': False, 'error': f'HTTP {response.status_code}'}
-                
-        except Exception as e:
-            logging.error(f"Error getting Sales Order {doc_entry} from SAP B1: {str(e)}")
-            return {'success': False, 'error': str(e)}
+    # def get_sales_order_by_doc_entry(self, doc_entry):
+    #     """Get Sales Order by DocEntry for picklist integration"""
+    #     if not self.ensure_logged_in():
+    #         logging.warning("SAP B1 not available for Sales Order lookup")
+    #         return self._get_mock_sales_order(doc_entry)
+    #
+    #     try:
+    #         url = f"{self.base_url}/b1s/v1/Orders?$filter=DocEntry eq {doc_entry}"
+    #         logging.info(f"🔍 Fetching Sales Order DocEntry={doc_entry}: {url}")
+    #
+    #         response = self.session.get(url)
+    #
+    #         if response.status_code == 200:
+    #             data = response.json()
+    #             orders = data.get('value', [])
+    #
+    #             if orders:
+    #                 order = orders[0]
+    #                 logging.info(f"✅ Found Sales Order DocEntry={doc_entry}: {order.get('CardCode')} - {order.get('CardName')}")
+    #                 return {
+    #                     'success': True,
+    #                     'sales_order': order
+    #                 }
+    #             else:
+    #                 logging.warning(f"⚠️ Sales Order DocEntry={doc_entry} not found")
+    #                 return {'success': False, 'error': f'Sales Order {doc_entry} not found'}
+    #         else:
+    #             logging.error(f"❌ Error fetching Sales Order: {response.status_code} - {response.text}")
+    #             return {'success': False, 'error': f'HTTP {response.status_code}'}
+    #
+    #     except Exception as e:
+    #         logging.error(f"Error getting Sales Order {doc_entry} from SAP B1: {str(e)}")
+    #         return {'success': False, 'error': str(e)}
 
     def _get_mock_sales_order(self, doc_entry):
         """Mock Sales Order data for development/offline mode"""
