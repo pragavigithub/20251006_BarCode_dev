@@ -729,8 +729,11 @@ function handleScannedBarcode(code) {
         return;
     }
     
-    // Stop scanning
-    stopScanning();
+    // Stop camera but keep modal open for feedback
+    if (window.barcodeScanner && isScanning) {
+        window.barcodeScanner.stopScan();
+        isScanning = false;
+    }
     
     // Show success message
     if (scanResult) {
@@ -741,7 +744,7 @@ function handleScannedBarcode(code) {
     // Auto-fill and add the item
     setTimeout(() => {
         autoAddScannedItem(matchingLine, parsed);
-    }, 500);
+    }, 800);
 }
 
 function parseBarcodeFormat(code) {
@@ -778,25 +781,29 @@ async function autoAddScannedItem(lineOption, parsed) {
     const remainingQty = openQty - alreadyAdded;
     
     if (remainingQty <= 0) {
-        alert(`Line ${baseLine} (${itemCode}) has no remaining quantity to deliver`);
+        const scanError = document.getElementById('scanError');
+        if (scanError) {
+            scanError.textContent = `Line ${baseLine} (${itemCode}) has no remaining quantity to deliver`;
+            scanError.classList.remove('d-none');
+        }
         return;
     }
     
     // Default quantity to 1 or remaining, whichever is smaller
     const quantity = Math.min(1, remainingQty);
     
-    // Prepare item data
+    // Prepare item data - must include item_code like manual add
     const itemData = {
         delivery_id: deliveryId,
         base_line: baseLine,
+        item_code: itemCode,
         quantity: quantity
     };
     
     // Add batch/serial if provided
     if (parsed.batchSerial) {
-        // Try to determine if it's a batch or serial number
-        // For now, we'll check the item's manage settings via SAP
-        // But as a quick solution, if batch/serial is provided, we'll add it as batch
+        // For now, assume it's a batch number
+        // Future enhancement: query SAP to determine if item is batch or serial managed
         itemData.batch_number = parsed.batchSerial;
     }
     
@@ -813,14 +820,33 @@ async function autoAddScannedItem(lineOption, parsed) {
         const data = await response.json();
         
         if (data.success) {
-            alert(`✓ Added: ${itemCode} x${quantity}`);
-            location.reload();
+            const scanResult = document.getElementById('scanResult');
+            if (scanResult) {
+                scanResult.textContent = `✓ Successfully added: ${itemCode} x${quantity}`;
+                scanResult.classList.remove('d-none');
+            }
+            
+            // Close modal and reload after brief delay for user to see success message
+            setTimeout(() => {
+                if (scanModalInstance) {
+                    scanModalInstance.hide();
+                }
+                location.reload();
+            }, 1500);
         } else {
-            alert('Error: ' + data.error);
+            const scanError = document.getElementById('scanError');
+            if (scanError) {
+                scanError.textContent = 'Error: ' + data.error;
+                scanError.classList.remove('d-none');
+            }
         }
     } catch (error) {
         console.error('Error adding item:', error);
-        alert('Error adding item: ' + error.message);
+        const scanError = document.getElementById('scanError');
+        if (scanError) {
+            scanError.textContent = 'Error adding item: ' + error.message;
+            scanError.classList.remove('d-none');
+        }
     }
 }
 
