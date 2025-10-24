@@ -277,11 +277,11 @@
 </div>
 
 <style>
-/* Ensure QR modal appears above all content */
-#qrModal {
+/* Ensure modals appear above all content and are clickable */
+#addItemModal, #qrModal {
     z-index: 9999 !important;
 }
-.modal-backdrop.show {
+.modal-backdrop {
     z-index: 9998 !important;
 }
 #qrLabelInfo {
@@ -360,12 +360,6 @@ addedQuantities[{{ item.base_line }}] += {{ item.quantity }};
 
 // Wait for DOM to be fully loaded before attaching event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Bootstrap modals
-    const addItemModalEl = document.getElementById('addItemModal');
-    if (addItemModalEl && typeof bootstrap !== 'undefined') {
-        new bootstrap.Modal(addItemModalEl);
-    }
-    
     // Attach event listener to line select dropdown
     const lineSelect = document.getElementById('line_select');
     if (lineSelect) {
@@ -379,9 +373,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const alreadyAdded = addedQuantities[baseLine] || 0;
             const remainingQty = openQty - alreadyAdded;
             
-            document.getElementById('maxQty').textContent = remainingQty.toFixed(2);
-            document.getElementById('quantity').max = remainingQty;
-            document.getElementById('quantity').value = remainingQty;
+            const maxQtyEl = document.getElementById('maxQty');
+            const quantityEl = document.getElementById('quantity');
+            
+            if (maxQtyEl) maxQtyEl.textContent = remainingQty.toFixed(2);
+            if (quantityEl) {
+                quantityEl.max = remainingQty;
+                quantityEl.value = remainingQty;
+            }
             
             if (itemCode) {
                 fetch('{{ url_for("sales_delivery.api_validate_item") }}', {
@@ -397,17 +396,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     const serialSection = document.getElementById('serialSection');
                     const batchSerialSection = document.getElementById('batchSerialSection');
                     
-                    if (data.batch_required) {
-                        batchSection.classList.remove('d-none');
-                        serialSection.classList.add('d-none');
-                        batchSerialSection.classList.remove('d-none');
-                    } else if (data.serial_required) {
-                        serialSection.classList.remove('d-none');
-                        batchSection.classList.add('d-none');
-                        batchSerialSection.classList.remove('d-none');
-                    } else {
-                        batchSerialSection.classList.add('d-none');
+                    if (batchSection && serialSection && batchSerialSection) {
+                        if (data.batch_required) {
+                            batchSection.classList.remove('d-none');
+                            serialSection.classList.add('d-none');
+                            batchSerialSection.classList.remove('d-none');
+                        } else if (data.serial_required) {
+                            serialSection.classList.remove('d-none');
+                            batchSection.classList.add('d-none');
+                            batchSerialSection.classList.remove('d-none');
+                        } else {
+                            batchSerialSection.classList.add('d-none');
+                        }
                     }
+                })
+                .catch(error => {
+                    console.error('Error validating item:', error);
                 });
             }
         });
@@ -416,11 +420,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function addItem() {
     const lineSelect = document.getElementById('line_select');
+    if (!lineSelect) {
+        console.error('Line select element not found');
+        return;
+    }
+    
     const baseLine = parseInt(lineSelect.value);
     const itemCode = lineSelect.options[lineSelect.selectedIndex].getAttribute('data-item');
-    const quantity = parseFloat(document.getElementById('quantity').value);
-    const batchNumber = document.getElementById('batch_number').value;
-    const serialNumber = document.getElementById('serial_number').value;
+    const quantityEl = document.getElementById('quantity');
+    const quantity = quantityEl ? parseFloat(quantityEl.value) : 0;
+    const batchNumberEl = document.getElementById('batch_number');
+    const serialNumberEl = document.getElementById('serial_number');
+    const batchNumber = batchNumberEl ? batchNumberEl.value : '';
+    const serialNumber = serialNumberEl ? serialNumberEl.value : '';
     
     if (isNaN(baseLine) || !quantity) {
         alert('Please fill all required fields');
