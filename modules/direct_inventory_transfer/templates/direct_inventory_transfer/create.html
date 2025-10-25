@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Create Direct Inventory Transfer{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Create Direct Inventory Transfer</h1>
+        <a href="{{ url_for('direct_inventory_transfer.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to List
+        </a>
+    </div>
+
+    <!-- Create Transfer Form -->
+    <div class="card shadow">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('direct_inventory_transfer.create') }}">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="from_warehouse" class="form-label">From Warehouse <span class="text-danger">*</span></label>
+                        <select class="form-select" id="from_warehouse" name="from_warehouse" required>
+                            <option value="">Select From Warehouse</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="to_warehouse" class="form-label">To Warehouse <span class="text-danger">*</span></label>
+                        <select class="form-select" id="to_warehouse" name="to_warehouse" required>
+                            <option value="">Select To Warehouse</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="from_bin" class="form-label">From Bin (Optional)</label>
+                        <input type="text" class="form-control" id="from_bin" name="from_bin" placeholder="Enter from bin">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="to_bin" class="form-label">To Bin (Optional)</label>
+                        <input type="text" class="form-control" id="to_bin" name="to_bin" placeholder="Enter to bin">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Enter any notes"></textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Transfer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/direct-inventory-transfer/api/get-warehouses')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const fromSelect = document.getElementById('from_warehouse');
+                const toSelect = document.getElementById('to_warehouse');
+                
+                data.warehouses.forEach(wh => {
+                    fromSelect.add(new Option(wh.WarehouseName + ' (' + wh.WarehouseCode + ')', wh.WarehouseCode));
+                    toSelect.add(new Option(wh.WarehouseName + ' (' + wh.WarehouseCode + ')', wh.WarehouseCode));
+                });
+            } else {
+                console.error('Failed to load warehouses:', data.error);
+            }
+        })
+        .catch(error => console.error('Error loading warehouses:', error));
+});
+</script>
+{% endblock %}
