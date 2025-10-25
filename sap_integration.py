@@ -3580,6 +3580,171 @@ class SAPIntegration:
         # Fallback to item code if description not found
         return f'Item {item_code}'
 
+    def get_warehouses(self):
+        """Get warehouse list from SAP B1"""
+        try:
+            if not self.ensure_logged_in():
+                return []
+            
+            url = f"{self.base_url}/b1s/v1/Warehouses?$select=WarehouseCode,WarehouseName"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                warehouses = data.get('value', [])
+                logging.info(f"✅ Retrieved {len(warehouses)} warehouses from SAP B1")
+                return warehouses
+            else:
+                logging.error(f"❌ Failed to get warehouses: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"❌ Error getting warehouses: {str(e)}")
+            return []
+
+    def validate_item_for_direct_transfer(self, item_code):
+        """
+        Validate item code and determine if it's serial or batch managed
+        Uses SQLQuery 'ItemCode_Batch_Serial_Val' to check item type
+        """
+        try:
+            if not self.ensure_logged_in():
+                return {'valid': False, 'error': 'SAP B1 authentication failed'}
+            
+            url = f"{self.base_url}/b1s/v1/SQLQueries('ItemCode_Batch_Serial_Val')/List"
+            payload = {
+                "ParamList": f"itemCode='{item_code}'"
+            }
+            
+            response = self.session.post(url, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                values = data.get('value', [])
+                
+                if values and len(values) > 0:
+                    item = values[0]
+                    is_serial_managed = item.get('SerialNum', 'N') == 'Y'
+                    is_batch_managed = item.get('BatchNum', 'N') == 'Y'
+                    
+                    if is_serial_managed:
+                        item_type = 'serial'
+                    elif is_batch_managed:
+                        item_type = 'batch'
+                    else:
+                        item_type = 'none'
+                    
+                    item_description = self._get_item_description(item_code)
+                    
+                    return {
+                        'valid': True,
+                        'item_code': item.get('ItemCode', item_code),
+                        'item_description': item_description,
+                        'item_type': item_type,
+                        'is_serial_managed': is_serial_managed,
+                        'is_batch_managed': is_batch_managed
+                    }
+                else:
+                    return {
+                        'valid': False,
+                        'error': f'Item code {item_code} not found in SAP B1'
+                    }
+            else:
+                logging.error(f"❌ SAP B1 API call failed: {response.status_code} - {response.text}")
+                return {
+                    'valid': False,
+                    'error': f'SAP B1 API call failed: {response.status_code}'
+                }
+                
+        except Exception as e:
+            logging.error(f"❌ Error validating item: {str(e)}")
+            return {
+                'valid': False,
+                'error': f'Error validating item: {str(e)}'
+            }
+
+    def post_direct_inventory_transfer_to_sap(self, transfer):
+        """
+        Post Direct Inventory Transfer to SAP B1 as StockTransfer
+        Handles both serial and batch managed items
+        """
+        try:
+            if not self.ensure_logged_in():
+                return {'success': False, 'error': 'SAP B1 authentication failed'}
+            
+            from datetime import datetime
+            doc_date = datetime.now().strftime('%Y-%m-%d')
+            
+            stock_transfer_lines = []
+            
+            for item in transfer.items:
+                line = {
+                    'ItemCode': item.item_code,
+                    'Quantity': item.quantity,
+                    'WarehouseCode': item.to_warehouse_code or transfer.to_warehouse,
+                    'FromWarehouseCode': item.from_warehouse_code or transfer.from_warehouse,
+                    'UoMCode': item.unit_of_measure or 'EA'
+                }
+                
+                if item.item_type == 'serial' and item.serial_numbers:
+                    import json
+                    serial_numbers = json.loads(item.serial_numbers) if isinstance(item.serial_numbers, str) else item.serial_numbers
+                    line['SerialNumbers'] = []
+                    
+                    for idx, serial_number in enumerate(serial_numbers):
+                        line['SerialNumbers'].append({
+                            'BaseLineNumber': idx,
+                            'InternalSerialNumber': serial_number,
+                            'Quantity': 1,
+                            'SystemSerialNumber': serial_number
+                        })
+                
+                elif item.item_type == 'batch' and item.batch_number:
+                    line['BatchNumbers'] = [{
+                        'BaseLineNumber': 0,
+                        'BatchNumberProperty': item.batch_number,
+                        'Quantity': item.quantity
+                    }]
+                
+                stock_transfer_lines.append(line)
+            
+            payload = {
+                'DocDate': doc_date,
+                'Comments': f'Direct Inventory Transfer {transfer.transfer_number} - Created by {transfer.user.username}',
+                'FromWarehouse': transfer.from_warehouse,
+                'ToWarehouse': transfer.to_warehouse,
+                'StockTransferLines': stock_transfer_lines
+            }
+            
+            url = f"{self.base_url}/b1s/v1/StockTransfers"
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code in [200, 201]:
+                data = response.json()
+                doc_num = data.get('DocNum')
+                doc_entry = data.get('DocEntry')
+                
+                logging.info(f"✅ Direct Inventory Transfer posted to SAP B1: DocNum={doc_num}, DocEntry={doc_entry}")
+                return {
+                    'success': True,
+                    'document_number': str(doc_num),
+                    'document_entry': doc_entry
+                }
+            else:
+                error_msg = response.text
+                logging.error(f"❌ SAP B1 StockTransfer posting failed: {response.status_code} - {error_msg}")
+                return {
+                    'success': False,
+                    'error': f'SAP B1 posting failed: {error_msg}'
+                }
+                
+        except Exception as e:
+            logging.error(f"❌ Error posting direct inventory transfer to SAP: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Error posting to SAP: {str(e)}'
+            }
+
     def logout(self):
         """Logout from SAP B1"""
         if self.session_id:
