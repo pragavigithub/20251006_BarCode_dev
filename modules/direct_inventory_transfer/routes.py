@@ -119,6 +119,28 @@ def get_warehouses():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@direct_inventory_transfer_bp.route('/api/get-bins', methods=['GET'])
+@login_required
+def get_bins():
+    """Get bin list for a warehouse from SAP B1"""
+    try:
+        warehouse_code = request.args.get('warehouse_code')
+        
+        if not warehouse_code:
+            return jsonify({'success': False, 'error': 'Warehouse code is required'}), 400
+
+        sap = SAPIntegration()
+        if not sap.ensure_logged_in():
+            return jsonify({'success': False, 'error': 'SAP B1 authentication failed'}), 500
+
+        bins = sap.get_bins(warehouse_code)
+        return jsonify({'success': True, 'bins': bins})
+
+    except Exception as e:
+        logging.error(f"Error fetching bins: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @direct_inventory_transfer_bp.route('/api/validate-item', methods=['POST'])
 @login_required
 def validate_item():
@@ -190,8 +212,22 @@ def add_item(transfer_id):
             }), 400
 
         serial_numbers_json = None
-        if item_type == 'serial' and serial_numbers_str:
-            serial_numbers_json = json.dumps([sn.strip() for sn in serial_numbers_str.split(',') if sn.strip()])
+        serial_numbers_list = []
+        
+        if item_type == 'serial':
+            if not serial_numbers_str:
+                return jsonify({'success': False, 'error': 'Serial numbers are required for serial-managed items'}), 400
+            
+            serial_numbers_list = [sn.strip() for sn in serial_numbers_str.split(',') if sn.strip()]
+            
+            if len(serial_numbers_list) != int(quantity):
+                return jsonify({'success': False, 'error': f'Number of serial numbers ({len(serial_numbers_list)}) must match quantity ({int(quantity)})'}), 400
+            
+            serial_numbers_json = json.dumps(serial_numbers_list)
+        
+        elif item_type == 'batch':
+            if not batch_number:
+                return jsonify({'success': False, 'error': 'Batch number is required for batch-managed items'}), 400
 
         transfer_item = DirectInventoryTransferItem(
             direct_inventory_transfer_id=transfer.id,
