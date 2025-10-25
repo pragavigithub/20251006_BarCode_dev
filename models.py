@@ -783,5 +783,60 @@ class SerialItemTransferItem(db.Model):
     # Note: Allowing duplicate serial numbers for user review and manual deletion
     # __table_args__ = (db.UniqueConstraint('serial_item_transfer_id', 'serial_number', name='unique_serial_per_transfer'),)
 
+# ================================
+# Direct Inventory Transfer Models (New Module)
+# ================================
+
+class DirectInventoryTransfer(db.Model):
+    """Direct Inventory Transfer Document Header - Barcode-driven transfers with automatic serial/batch detection"""
+    __tablename__ = 'direct_inventory_transfers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    transfer_number = db.Column(db.String(50), nullable=False, unique=True)
+    sap_document_number = db.Column(db.String(50))
+    status = db.Column(db.String(20), default='draft')  # draft, submitted, qc_approved, posted, rejected
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    qc_approver_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    qc_approved_at = db.Column(db.DateTime)
+    qc_notes = db.Column(db.Text)
+    from_warehouse = db.Column(db.String(50))
+    to_warehouse = db.Column(db.String(50))
+    from_bin = db.Column(db.String(50))
+    to_bin = db.Column(db.String(50))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='direct_inventory_transfers')
+    qc_approver = db.relationship('User', foreign_keys=[qc_approver_id])
+    items = db.relationship('DirectInventoryTransferItem', backref='direct_inventory_transfer', lazy=True, cascade='all, delete-orphan')
+
+
+class DirectInventoryTransferItem(db.Model):
+    """Direct Inventory Transfer Line Items - Auto-populated from barcode scan with SAP validation"""
+    __tablename__ = 'direct_inventory_transfer_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    direct_inventory_transfer_id = db.Column(db.Integer, db.ForeignKey('direct_inventory_transfers.id'), nullable=False)
+    item_code = db.Column(db.String(50), nullable=False)
+    item_description = db.Column(db.String(200))
+    barcode = db.Column(db.String(100))
+    item_type = db.Column(db.String(20))  # serial, batch, or none
+    quantity = db.Column(db.Float, default=1, nullable=False)
+    unit_of_measure = db.Column(db.String(10), default='EA')
+    from_warehouse_code = db.Column(db.String(50))
+    to_warehouse_code = db.Column(db.String(50))
+    from_bin_code = db.Column(db.String(50))
+    to_bin_code = db.Column(db.String(50))
+    batch_number = db.Column(db.String(100))
+    serial_numbers = db.Column(db.Text)  # JSON array of serial numbers
+    qc_status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    validation_status = db.Column(db.String(20), default='pending')  # pending, validated, failed
+    validation_error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # Import delivery module models
 from modules.sales_delivery.models import DeliveryDocument, DeliveryItem
