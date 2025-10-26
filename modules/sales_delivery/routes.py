@@ -205,7 +205,7 @@ def api_add_item():
 @sales_delivery_bp.route('/api/submit_delivery', methods=['POST'])
 @login_required
 def api_submit_delivery():
-    """Submit delivery note to SAP B1"""
+    """Submit delivery note for QC approval (does not post to SAP yet)"""
     data = request.get_json()
     delivery_id = data.get('delivery_id')
     
@@ -227,7 +227,7 @@ def api_submit_delivery():
     
     sap = SAPIntegration()
     
-    # Ensure we have CardCode and other SO details
+    # Validate we have all required data from SAP (but don't post yet)
     card_code = delivery.card_code
     doc_currency = delivery.doc_currency
     
@@ -247,60 +247,17 @@ def api_submit_delivery():
         else:
             return jsonify({'success': False, 'error': 'Unable to fetch Sales Order details from SAP'})
     
-    document_lines = []
-    for item in items:
-        line_data = {
-            'BaseType': 17,
-            'BaseEntry': delivery.so_doc_entry,
-            'BaseLine': item.base_line,
-            'ItemCode': item.item_code,
-            'Quantity': item.quantity,
-            'WarehouseCode': item.warehouse_code,
-            'UnitPrice': item.unit_price
-        }
-        
-        if item.batch_required and item.batch_number:
-            line_data['BatchNumbers'] = [{
-                'BatchNumber': item.batch_number,
-                'Quantity': item.quantity
-            }]
-        
-        if item.serial_required and item.serial_number:
-            line_data['SerialNumbers'] = [{
-                'InternalSerialNumber': item.serial_number,
-                'Quantity': 1
-            }]
-        
-        document_lines.append(line_data)
+    # Submit for QC approval without posting to SAP
+    delivery.status = 'submitted'
+    delivery.submitted_at = datetime.utcnow()
+    db.session.commit()
     
-    delivery_data = {
-        'CardCode': card_code,
-        'DocDate': delivery.doc_date.strftime('%Y-%m-%d') if delivery.doc_date else datetime.now().strftime('%Y-%m-%d'),
-        'DocCurrency': doc_currency or 'INR',
-        'Series': delivery.delivery_series or delivery.so_series,
-        'Comments': delivery.remarks or f'Delivery against SO {delivery.so_doc_num}',
-        'DocumentLines': document_lines
-    }
+    logging.info(f"✅ Sales Delivery {delivery_id} submitted for QC approval by {current_user.username}")
     
-    result = sap.create_delivery_note(delivery_data)
-    
-    if result.get('success'):
-        delivery.status = 'submitted'
-        delivery.sap_doc_entry = result.get('doc_entry')
-        delivery.sap_doc_num = result.get('doc_num')
-        delivery.submitted_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': result.get('message'),
-            'doc_num': result.get('doc_num')
-        })
-    else:
-        return jsonify({
-            'success': False,
-            'error': result.get('error')
-        })
+    return jsonify({
+        'success': True,
+        'message': f'Delivery against SO {delivery.so_doc_num} submitted for QC approval'
+    })
 
 
 @sales_delivery_bp.route('/api/delete_item/<int:item_id>', methods=['DELETE'])

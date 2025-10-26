@@ -2316,9 +2316,9 @@ def reject_direct_transfer_qc(transfer_id):
 @app.route('/sales_delivery/<int:delivery_id>/qc_approve', methods=['POST'])
 @login_required
 def approve_sales_delivery_qc(delivery_id):
-    """Approve Sales Delivery from QC Dashboard"""
+    """Approve Sales Delivery from QC Dashboard and post to SAP B1"""
     try:
-        from modules.sales_delivery.models import DeliveryDocument
+        from modules.sales_delivery.models import DeliveryDocument, DeliveryItem
         delivery = DeliveryDocument.query.get_or_404(delivery_id)
         
         if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
@@ -2340,16 +2340,70 @@ def approve_sales_delivery_qc(delivery_id):
         for item in delivery.items:
             item.qc_status = 'approved'
         
+        sap = SAPIntegration()
+        if not sap.ensure_logged_in():
+            db.session.rollback()
+            flash('SAP B1 authentication failed. Please try again.', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        document_lines = []
+        for item in delivery.items:
+            line_data = {
+                'BaseType': 17,
+                'BaseEntry': delivery.so_doc_entry,
+                'BaseLine': item.base_line,
+                'ItemCode': item.item_code,
+                'Quantity': item.quantity,
+                'WarehouseCode': item.warehouse_code,
+                'UnitPrice': item.unit_price
+            }
+            
+            if item.batch_required and item.batch_number:
+                line_data['BatchNumbers'] = [{
+                    'BatchNumber': item.batch_number,
+                    'Quantity': item.quantity
+                }]
+            
+            if item.serial_required and item.serial_number:
+                line_data['SerialNumbers'] = [{
+                    'InternalSerialNumber': item.serial_number,
+                    'Quantity': 1
+                }]
+            
+            document_lines.append(line_data)
+        
+        delivery_data = {
+            'CardCode': delivery.card_code,
+            'DocDate': delivery.doc_date.strftime('%Y-%m-%d') if delivery.doc_date else datetime.utcnow().strftime('%Y-%m-%d'),
+            'DocCurrency': delivery.doc_currency or 'INR',
+            'Series': delivery.delivery_series or delivery.so_series,
+            'Comments': delivery.remarks or f'Delivery against SO {delivery.so_doc_num} - QC Approved by {current_user.username}',
+            'DocumentLines': document_lines
+        }
+        
+        result = sap.create_delivery_note(delivery_data)
+        
+        if not result.get('success'):
+            db.session.rollback()
+            sap_error = result.get('error', 'Unknown SAP error')
+            logging.error(f"❌ SAP B1 posting failed for delivery {delivery_id}: {sap_error}")
+            flash(f'QC approved but SAP B1 posting failed: {sap_error}', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        delivery.sap_doc_entry = result.get('doc_entry')
+        delivery.sap_doc_num = result.get('doc_num')
+        delivery.status = 'posted'
+        
         db.session.commit()
         
-        logging.info(f"✅ Sales Delivery {delivery_id} approved by {current_user.username}")
-        flash(f'Sales Delivery {delivery.delivery_number} approved successfully!', 'success')
+        logging.info(f"✅ Sales Delivery {delivery_id} approved and posted to SAP B1 as DocNum {delivery.sap_doc_num} by {current_user.username}")
+        flash(f'Sales Delivery approved and posted to SAP B1 as {delivery.sap_doc_num}!', 'success')
         return redirect(url_for('qc_dashboard'))
         
     except Exception as e:
         logging.error(f"Error approving sales delivery: {str(e)}")
         db.session.rollback()
-        flash('Error approving delivery', 'error')
+        flash(f'Error approving delivery: {str(e)}', 'error')
         return redirect(url_for('qc_dashboard'))
 
 @app.route('/sales_delivery/<int:delivery_id>/qc_reject', methods=['POST'])

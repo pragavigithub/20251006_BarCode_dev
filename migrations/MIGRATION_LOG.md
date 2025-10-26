@@ -37,6 +37,43 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-26 - QC Workflow Enforcement for Sales Delivery and Direct Inventory Transfer
+- **Files**: `modules/sales_delivery/routes.py`, `routes.py`, `templates/edit_user.html`
+- **Description**: Enforced QC approval workflow to ensure SAP B1 posting only occurs after QC approval for both Sales Delivery and Direct Inventory Transfer modules
+- **Status**: ✅ Completed
+- **Applied By**: Replit Agent
+- **Changes**:
+  - **Sales Delivery Module (`modules/sales_delivery/routes.py`)**:
+    - Modified `api_submit_delivery` route to only set status to 'submitted' (removed SAP posting)
+    - Submission now validates required data from SAP but does not post to SAP B1
+    - Documents wait in 'submitted' status for QC approval
+  - **Sales Delivery QC Approval (`routes.py`)**:
+    - Modified `approve_sales_delivery_qc` route to post to SAP B1 after QC approval
+    - Builds delivery document payload with batch/serial numbers
+    - Sets status to 'posted' after successful SAP posting
+    - Includes proper error handling with database rollback on SAP failures
+  - **User Management (`templates/edit_user.html`)**:
+    - Added permission checkbox for 'direct_inventory_transfer' module
+    - Added permission checkbox for 'sales_delivery' module
+    - Both modules now appear in user permissions management interface
+  - **Direct Inventory Transfer**:
+    - No changes required - already correctly enforces QC approval before SAP posting
+    - Verified workflow: submit → QC approve → post to SAP
+- **Workflow**:
+  1. User creates delivery/transfer (status='draft')
+  2. User submits for QC approval (status='submitted') - NO SAP posting
+  3. QC approves (status='qc_approved') and system posts to SAP B1 (status='posted')
+  4. QC can reject with notes (status='rejected') - NO SAP posting
+- **Database Requirements**:
+  - **IMPORTANT**: This enforcement requires the `2025-10-26_sales_delivery_qc_approval.sql` migration to be applied first
+  - Migration adds: qc_approver_id, qc_approved_at, qc_notes columns to delivery_documents table
+  - Migration adds: qc_status column to delivery_items table
+- **Notes**: 
+  - QC approval is now mandatory for both modules before SAP B1 posting
+  - No bypass routes exist - all SAP posting goes through QC approval
+  - Proper transaction management ensures data consistency
+  - Error messages clearly indicate QC vs SAP failures
+
 ### 2025-10-26 - Sales Delivery QC Approval Workflow
 - **File**: `migrations/mysql/changes/2025-10-26_sales_delivery_qc_approval.sql`
 - **Description**: Added QC approval workflow to Sales Delivery module
