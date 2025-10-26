@@ -48,6 +48,18 @@
     </div>
     {% endif %}
     
+    {% if current_user.has_permission('direct_inventory_transfer') %}
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card dashboard-card" data-url="{{ url_for('direct_inventory_transfer.index') }}">
+            <div class="card-body text-center">
+                <i data-feather="send" class="mb-3" style="width: 48px; height: 48px;"></i>
+                <h3>{{ stats.direct_inventory_transfer_count }}</h3>
+                <p>Direct Transfers</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
 <!--    {% if current_user.has_permission('pick_list') %}-->
 <!--    <div class="col-md-3 col-sm-6 mb-3">-->
 <!--        <div class="card dashboard-card" data-url="{{ url_for('pick_list') }}">-->

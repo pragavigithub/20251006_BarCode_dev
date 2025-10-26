@@ -441,6 +441,65 @@ class MySQLConsolidatedMigration:
                     INDEX idx_item_code (item_code),
                     INDEX idx_qc_status (qc_status)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ''',
+            
+            # 16. Direct Inventory Transfers
+            'direct_inventory_transfers': '''
+                CREATE TABLE IF NOT EXISTS direct_inventory_transfers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    transfer_number VARCHAR(50) NOT NULL UNIQUE,
+                    sap_document_number VARCHAR(50),
+                    status VARCHAR(20) DEFAULT 'draft',
+                    user_id INT NOT NULL,
+                    qc_approver_id INT,
+                    qc_approved_at TIMESTAMP NULL,
+                    qc_notes TEXT,
+                    from_warehouse VARCHAR(50),
+                    to_warehouse VARCHAR(50),
+                    from_bin VARCHAR(50),
+                    to_bin VARCHAR(50),
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+                    FOREIGN KEY (qc_approver_id) REFERENCES users(id) ON DELETE SET NULL,
+                    INDEX idx_transfer_number (transfer_number),
+                    INDEX idx_status (status),
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_qc_approver_id (qc_approver_id),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ''',
+            
+            # 17. Direct Inventory Transfer Items
+            'direct_inventory_transfer_items': '''
+                CREATE TABLE IF NOT EXISTS direct_inventory_transfer_items (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    direct_inventory_transfer_id INT NOT NULL,
+                    item_code VARCHAR(50) NOT NULL,
+                    item_description VARCHAR(200),
+                    barcode VARCHAR(100),
+                    item_type VARCHAR(20),
+                    quantity DECIMAL(15,4) DEFAULT 1,
+                    unit_of_measure VARCHAR(10) DEFAULT 'EA',
+                    from_warehouse_code VARCHAR(50),
+                    to_warehouse_code VARCHAR(50),
+                    from_bin_code VARCHAR(50),
+                    to_bin_code VARCHAR(50),
+                    batch_number VARCHAR(100),
+                    serial_numbers TEXT,
+                    qc_status VARCHAR(20) DEFAULT 'pending',
+                    validation_status VARCHAR(20) DEFAULT 'pending',
+                    validation_error TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (direct_inventory_transfer_id) REFERENCES direct_inventory_transfers(id) ON DELETE CASCADE,
+                    INDEX idx_direct_inventory_transfer_id (direct_inventory_transfer_id),
+                    INDEX idx_item_code (item_code),
+                    INDEX idx_barcode (barcode),
+                    INDEX idx_qc_status (qc_status),
+                    INDEX idx_validation_status (validation_status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             '''
         }
         

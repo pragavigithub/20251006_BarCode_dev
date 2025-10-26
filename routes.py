@@ -8,7 +8,8 @@ from barcode_generator import BarcodeGenerator
 
 from app import app, db, login_manager
 from models import User, InventoryTransfer, InventoryTransferItem, PickList, PickListItem, \
-    InventoryCount, InventoryCountItem, SAPInventoryCount, SAPInventoryCountLine, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine
+    InventoryCount, InventoryCountItem, SAPInventoryCount, SAPInventoryCountLine, BarcodeLabel, BinScanningLog, DocumentNumberSeries, QRCodeLabel, PickListLine, \
+    DirectInventoryTransfer, DirectInventoryTransferItem
 from modules.grpo.models import GRPODocument, GRPOItem, GRPOSerialNumber, GRPOBatchNumber, PurchaseDeliveryNote
 from modules.multi_grn_creation.models import MultiGRNBatch
 from sap_integration import SAPIntegration
@@ -835,13 +836,15 @@ def dashboard():
         pick_list_count = PickList.query.filter_by(user_id=current_user.id).count()
         count_tasks = InventoryCount.query.filter_by(user_id=current_user.id).count()
         multi_grn_count = MultiGRNBatch.query.filter_by(user_id=current_user.id).count()
+        direct_inventory_transfer_count = DirectInventoryTransfer.query.filter_by(user_id=current_user.id).count()
         
         stats = {
             'grpo_count': grpo_count,
             'transfer_count': transfer_count,
             'pick_list_count': pick_list_count,
             'count_tasks': count_tasks,
-            'multi_grn_count': multi_grn_count
+            'multi_grn_count': multi_grn_count,
+            'direct_inventory_transfer_count': direct_inventory_transfer_count
         }
         
         # Get recent activity - live data from database
@@ -897,6 +900,16 @@ def dashboard():
                 'status': batch.status
             })
         
+        # Get recent Direct Inventory Transfers
+        recent_direct_transfers = DirectInventoryTransfer.query.filter_by(user_id=current_user.id).order_by(DirectInventoryTransfer.created_at.desc()).limit(5).all()
+        for transfer in recent_direct_transfers:
+            recent_activities.append({
+                'type': 'Direct Inventory Transfer',
+                'description': f"Transfer: {transfer.transfer_number}",
+                'created_at': transfer.created_at,
+                'status': transfer.status
+            })
+        
         # Sort all activities by creation date and get top 10
         recent_activities = sorted(recent_activities, key=lambda x: x['created_at'], reverse=True)[:10]
         
@@ -908,7 +921,8 @@ def dashboard():
             'transfer_count': 0,
             'pick_list_count': 0,
             'count_tasks': 0,
-            'multi_grn_count': 0
+            'multi_grn_count': 0,
+            'direct_inventory_transfer_count': 0
         }
         recent_activities = []
         flash('Database needs to be updated. Please run: python migrate_database.py', 'warning')
