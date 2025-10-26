@@ -1945,6 +1945,14 @@ def qc_dashboard():
     # Get QC approved Serial Item Transfers ready for SAP posting
     qc_approved_serial_item_transfers = SerialItemTransfer.query.filter_by(status='qc_approved').order_by(SerialItemTransfer.qc_approved_at.desc()).all()
     
+    # Get pending Direct Inventory Transfers for QC approval
+    from models import DirectInventoryTransfer
+    pending_direct_transfers = DirectInventoryTransfer.query.filter_by(status='submitted').order_by(DirectInventoryTransfer.created_at.desc()).all()
+    
+    # Get pending Sales Deliveries for QC approval
+    from modules.sales_delivery.models import DeliveryDocument
+    pending_deliveries = DeliveryDocument.query.filter_by(status='submitted').order_by(DeliveryDocument.created_at.desc()).all()
+    
     # Calculate metrics for today
     from datetime import datetime, date
     today = date.today()
@@ -1972,7 +1980,19 @@ def qc_dashboard():
         db.func.date(SerialItemTransfer.qc_approved_at) == today
     ).count()
     
-    approved_today = approved_grpos_today + approved_transfers_today + approved_serial_transfers_today + approved_serial_item_transfers_today
+    # Count approved direct inventory transfers today
+    approved_direct_transfers_today = DirectInventoryTransfer.query.filter(
+        DirectInventoryTransfer.status.in_(['qc_approved', 'posted']),
+        db.func.date(DirectInventoryTransfer.qc_approved_at) == today
+    ).count()
+    
+    # Count approved sales deliveries today
+    approved_deliveries_today = DeliveryDocument.query.filter(
+        DeliveryDocument.status.in_(['qc_approved', 'posted']),
+        db.func.date(DeliveryDocument.qc_approved_at) == today
+    ).count()
+    
+    approved_today = approved_grpos_today + approved_transfers_today + approved_serial_transfers_today + approved_serial_item_transfers_today + approved_direct_transfers_today + approved_deliveries_today
     
     # Count rejected today
     rejected_grpos_today = GRPODocument.query.filter(
@@ -1997,7 +2017,19 @@ def qc_dashboard():
         db.func.date(SerialItemTransfer.qc_approved_at) == today
     ).count()
     
-    rejected_today = rejected_grpos_today + rejected_transfers_today + rejected_serial_transfers_today
+    # Count rejected direct inventory transfers today
+    rejected_direct_transfers_today = DirectInventoryTransfer.query.filter(
+        DirectInventoryTransfer.status == 'rejected',
+        db.func.date(DirectInventoryTransfer.qc_approved_at) == today
+    ).count()
+    
+    # Count rejected sales deliveries today
+    rejected_deliveries_today = DeliveryDocument.query.filter(
+        DeliveryDocument.status == 'rejected',
+        db.func.date(DeliveryDocument.qc_approved_at) == today
+    ).count()
+    
+    rejected_today = rejected_grpos_today + rejected_transfers_today + rejected_serial_transfers_today + rejected_serial_item_transfers_today + rejected_direct_transfers_today + rejected_deliveries_today
     
     # Calculate average processing time
     from sqlalchemy import text
@@ -2100,8 +2132,10 @@ def qc_dashboard():
                          pending_grpos=pending_grpos,
                          pending_serial_transfers=pending_serial_transfers,
                          pending_serial_item_transfers=pending_serial_item_transfers,
+                         pending_direct_transfers=pending_direct_transfers,
+                         pending_deliveries=pending_deliveries,
                          qc_approved_serial_item_transfers=qc_approved_serial_item_transfers,
-                         pending_count=len(pending_transfers) + len(pending_grpos) + len(pending_serial_transfers) + len(pending_serial_item_transfers),
+                         pending_count=len(pending_transfers) + len(pending_grpos) + len(pending_serial_transfers) + len(pending_serial_item_transfers) + len(pending_direct_transfers) + len(pending_deliveries),
                          approved_today=approved_today,
                          rejected_today=rejected_today,
                          avg_processing_time=avg_processing_time)

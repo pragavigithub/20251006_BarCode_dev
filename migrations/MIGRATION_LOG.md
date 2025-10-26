@@ -37,6 +37,33 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-26 - Sales Delivery QC Approval Workflow
+- **File**: `migrations/mysql/changes/2025-10-26_sales_delivery_qc_approval.sql`
+- **Description**: Added QC approval workflow to Sales Delivery module
+- **Tables Affected**: delivery_documents, delivery_items
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - **delivery_documents Table**:
+    - Added `qc_approver_id` INT (FK to users.id) - QC approver reference
+    - Added `qc_approved_at` DATETIME - QC approval timestamp
+    - Added `qc_notes` TEXT - QC approval/rejection notes
+    - Updated `status` column comment to include new statuses (draft, submitted, qc_approved, posted, rejected)
+  - **delivery_items Table**:
+    - Added `qc_status` VARCHAR(20) DEFAULT 'pending' - Item QC status (pending, approved, rejected)
+  - **Indexes Added**:
+    - `idx_delivery_status` on delivery_documents.status
+    - `idx_delivery_qc_approved_at` on delivery_documents.qc_approved_at
+    - `idx_delivery_item_qc_status` on delivery_items.qc_status
+- **Application Integration**:
+  - QC Dashboard now displays pending Sales Deliveries for approval
+  - QC approval/rejection routes integrated
+  - Sales Delivery appears in User Management permission checkboxes
+- **Notes**: 
+  - Enables quality control workflow for sales deliveries
+  - Maintains consistency with other modules (GRPO, Inventory Transfer, etc.)
+  - QC approval required before posting to SAP B1
+
 ### 2025-10-26 - Direct Inventory Transfer Module
 - **File**: `mysql/changes/2025-10-26_direct_inventory_transfer_module.sql`
 - **Description**: Added complete Direct Inventory Transfer module for barcode-driven warehouse transfers
