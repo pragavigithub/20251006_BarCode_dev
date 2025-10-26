@@ -15,7 +15,7 @@ MODIFY COLUMN status VARCHAR(20) DEFAULT 'draft' COMMENT 'draft, submitted, qc_a
 
 -- Add QC status field to delivery_items table
 ALTER TABLE delivery_items
-ADD COLUMN qc_status VARCHAR(20) DEFAULT 'pending' AFTER warehouse_routing COMMENT 'pending, approved, rejected';
+ADD COLUMN qc_status VARCHAR(20) DEFAULT 'pending' COMMENT 'pending, approved, rejected' AFTER warehouse_routing;
 
 -- Add indexes for QC queries
 CREATE INDEX idx_delivery_status ON delivery_documents(status);

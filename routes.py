@@ -2232,6 +2232,168 @@ def reject_serial_item_transfer_qc(transfer_id):
         flash('Error rejecting transfer', 'error')
         return redirect(url_for('qc_dashboard'))
 
+@app.route('/direct_inventory_transfer/<int:transfer_id>/qc_approve', methods=['POST'])
+@login_required
+def approve_direct_transfer_qc(transfer_id):
+    """Approve Direct Inventory Transfer from QC Dashboard"""
+    try:
+        from models import DirectInventoryTransfer
+        transfer = DirectInventoryTransfer.query.get_or_404(transfer_id)
+        
+        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
+            flash('Access denied - QC permissions required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        if transfer.status != 'submitted':
+            flash('Only submitted transfers can be approved', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        qc_notes = request.form.get('qc_notes', '').strip()
+        
+        transfer.status = 'qc_approved'
+        transfer.qc_approver_id = current_user.id
+        transfer.qc_approved_at = datetime.utcnow()
+        transfer.qc_notes = qc_notes
+        transfer.updated_at = datetime.utcnow()
+        
+        for item in transfer.items:
+            item.qc_status = 'approved'
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Direct Inventory Transfer {transfer_id} approved by {current_user.username}")
+        flash(f'Direct Transfer {transfer.document_num} approved successfully!', 'success')
+        return redirect(url_for('qc_dashboard'))
+        
+    except Exception as e:
+        logging.error(f"Error approving direct transfer: {str(e)}")
+        db.session.rollback()
+        flash('Error approving transfer', 'error')
+        return redirect(url_for('qc_dashboard'))
+
+@app.route('/direct_inventory_transfer/<int:transfer_id>/qc_reject', methods=['POST'])
+@login_required
+def reject_direct_transfer_qc(transfer_id):
+    """Reject Direct Inventory Transfer from QC Dashboard"""
+    try:
+        from models import DirectInventoryTransfer
+        transfer = DirectInventoryTransfer.query.get_or_404(transfer_id)
+        
+        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
+            flash('Access denied - QC permissions required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        if transfer.status != 'submitted':
+            flash('Only submitted transfers can be rejected', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        qc_notes = request.form.get('qc_notes', '').strip()
+        if not qc_notes:
+            flash('Rejection reason is required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        transfer.status = 'rejected'
+        transfer.qc_approver_id = current_user.id
+        transfer.qc_approved_at = datetime.utcnow()
+        transfer.qc_notes = qc_notes
+        transfer.updated_at = datetime.utcnow()
+        
+        for item in transfer.items:
+            item.qc_status = 'rejected'
+        
+        db.session.commit()
+        
+        logging.info(f"❌ Direct Inventory Transfer {transfer_id} rejected by {current_user.username}")
+        flash(f'Direct Transfer {transfer.document_num} rejected.', 'warning')
+        return redirect(url_for('qc_dashboard'))
+        
+    except Exception as e:
+        logging.error(f"Error rejecting direct transfer: {str(e)}")
+        db.session.rollback()
+        flash('Error rejecting transfer', 'error')
+        return redirect(url_for('qc_dashboard'))
+
+@app.route('/sales_delivery/<int:delivery_id>/qc_approve', methods=['POST'])
+@login_required
+def approve_sales_delivery_qc(delivery_id):
+    """Approve Sales Delivery from QC Dashboard"""
+    try:
+        from modules.sales_delivery.models import DeliveryDocument
+        delivery = DeliveryDocument.query.get_or_404(delivery_id)
+        
+        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
+            flash('Access denied - QC permissions required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        if delivery.status != 'submitted':
+            flash('Only submitted deliveries can be approved', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        qc_notes = request.form.get('qc_notes', '').strip()
+        
+        delivery.status = 'qc_approved'
+        delivery.qc_approver_id = current_user.id
+        delivery.qc_approved_at = datetime.utcnow()
+        delivery.qc_notes = qc_notes
+        delivery.updated_at = datetime.utcnow()
+        
+        for item in delivery.items:
+            item.qc_status = 'approved'
+        
+        db.session.commit()
+        
+        logging.info(f"✅ Sales Delivery {delivery_id} approved by {current_user.username}")
+        flash(f'Sales Delivery {delivery.delivery_number} approved successfully!', 'success')
+        return redirect(url_for('qc_dashboard'))
+        
+    except Exception as e:
+        logging.error(f"Error approving sales delivery: {str(e)}")
+        db.session.rollback()
+        flash('Error approving delivery', 'error')
+        return redirect(url_for('qc_dashboard'))
+
+@app.route('/sales_delivery/<int:delivery_id>/qc_reject', methods=['POST'])
+@login_required
+def reject_sales_delivery_qc(delivery_id):
+    """Reject Sales Delivery from QC Dashboard"""
+    try:
+        from modules.sales_delivery.models import DeliveryDocument
+        delivery = DeliveryDocument.query.get_or_404(delivery_id)
+        
+        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
+            flash('Access denied - QC permissions required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        if delivery.status != 'submitted':
+            flash('Only submitted deliveries can be rejected', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        qc_notes = request.form.get('qc_notes', '').strip()
+        if not qc_notes:
+            flash('Rejection reason is required', 'error')
+            return redirect(url_for('qc_dashboard'))
+        
+        delivery.status = 'rejected'
+        delivery.qc_approver_id = current_user.id
+        delivery.qc_approved_at = datetime.utcnow()
+        delivery.qc_notes = qc_notes
+        delivery.updated_at = datetime.utcnow()
+        
+        for item in delivery.items:
+            item.qc_status = 'rejected'
+        
+        db.session.commit()
+        
+        logging.info(f"❌ Sales Delivery {delivery_id} rejected by {current_user.username}")
+        flash(f'Sales Delivery {delivery.delivery_number} rejected.', 'warning')
+        return redirect(url_for('qc_dashboard'))
+        
+    except Exception as e:
+        logging.error(f"Error rejecting sales delivery: {str(e)}")
+        db.session.rollback()
+        flash('Error rejecting delivery', 'error')
+        return redirect(url_for('qc_dashboard'))
+
 @app.route('/serial_item_transfer/<int:transfer_id>/post_to_sap', methods=['POST'])
 @login_required
 def post_serial_item_transfer_to_sap(transfer_id):
