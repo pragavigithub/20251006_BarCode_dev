@@ -16,17 +16,21 @@ class DeliveryDocument(db.Model):
     doc_currency = db.Column(db.String(10), nullable=True)
     doc_date = db.Column(db.DateTime, nullable=True)
     delivery_series = db.Column(db.Integer, nullable=True)
-    status = db.Column(db.String(20), default='draft')
+    status = db.Column(db.String(20), default='draft')  # draft, submitted, qc_approved, posted, rejected
     sap_doc_entry = db.Column(db.Integer, nullable=True, index=True)
     sap_doc_num = db.Column(db.Integer, nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    qc_approver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    qc_approved_at = db.Column(db.DateTime, nullable=True)
+    qc_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     submitted_at = db.Column(db.DateTime, nullable=True)
     last_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user = relationship('User', foreign_keys=[user_id])
+    qc_approver = relationship('User', foreign_keys=[qc_approver_id])
     items = relationship('DeliveryItem', back_populates='delivery', cascade='all, delete-orphan')
 
     def __repr__(self):
@@ -59,6 +63,7 @@ class DeliveryItem(db.Model):
     cost_code = db.Column(db.String(50), nullable=True)
     qr_code_generated = db.Column(db.Boolean, default=False)
     warehouse_routing = db.Column(db.String(200), nullable=True)
+    qc_status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
