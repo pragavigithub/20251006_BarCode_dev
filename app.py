@@ -213,5 +213,20 @@ app.jinja_loader.searchpath.extend([
 
 logging.info("✅ All module blueprints registered and template paths configured")
 
+# Register custom Jinja2 filters
+import json
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Parse JSON string to Python object for use in templates"""
+    if value is None or value == '':
+        return []
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return []
+
+logging.info("✅ Custom Jinja2 filters registered")
+
 # Import routes to register them
 import routes

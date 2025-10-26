@@ -37,6 +37,77 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-26 - Direct Inventory Transfer Module
+- **File**: `mysql/changes/2025-10-26_direct_inventory_transfer_module.sql`
+- **Description**: Added complete Direct Inventory Transfer module for barcode-driven warehouse transfers
+- **Tables Created**: 
+  - `direct_inventory_transfers` - Transfer document headers
+  - `direct_inventory_transfer_items` - Transfer line items with batch/serial support
+- **Status**: ✅ Applied
+- **Applied By**: System
+- **Changes**:
+  - **direct_inventory_transfers Table**:
+    - `id` INT PRIMARY KEY AUTO_INCREMENT
+    - `transfer_number` VARCHAR(50) UNIQUE - Document number
+    - `sap_document_number` VARCHAR(50) - SAP B1 document reference
+    - `status` VARCHAR(20) - draft, submitted, qc_approved, posted, rejected
+    - `user_id` INT - Creator user reference (FK to users)
+    - `qc_approver_id` INT - QC approver reference (FK to users)
+    - `qc_approved_at` DATETIME - QC approval timestamp
+    - `qc_notes` TEXT - QC approval/rejection notes
+    - `from_warehouse` VARCHAR(50) - Source warehouse code
+    - `to_warehouse` VARCHAR(50) - Destination warehouse code
+    - `from_bin` VARCHAR(50) - Source bin location
+    - `to_bin` VARCHAR(50) - Destination bin location
+    - `notes` TEXT - Transfer notes
+    - `created_at` DATETIME - Creation timestamp
+    - `updated_at` DATETIME - Last update timestamp
+  - **direct_inventory_transfer_items Table**:
+    - `id` INT PRIMARY KEY AUTO_INCREMENT
+    - `direct_inventory_transfer_id` INT - Parent transfer reference (FK, CASCADE DELETE)
+    - `item_code` VARCHAR(50) - SAP item code
+    - `item_description` VARCHAR(200) - Item description
+    - `barcode` VARCHAR(100) - Scanned barcode value
+    - `item_type` VARCHAR(20) - serial, batch, or none
+    - `quantity` DECIMAL(15,2) - Transfer quantity
+    - `unit_of_measure` VARCHAR(10) - UOM (default 'EA')
+    - `from_warehouse_code` VARCHAR(50) - Source warehouse
+    - `to_warehouse_code` VARCHAR(50) - Destination warehouse
+    - `from_bin_code` VARCHAR(50) - Source bin
+    - `to_bin_code` VARCHAR(50) - Destination bin
+    - `batch_number` VARCHAR(100) - Batch number for batch-managed items
+    - `serial_numbers` TEXT - JSON array of serial numbers for serial-managed items
+    - `qc_status` VARCHAR(20) - pending, approved, rejected
+    - `validation_status` VARCHAR(20) - pending, validated, failed
+    - `validation_error` TEXT - Validation error messages
+    - `created_at` DATETIME - Creation timestamp
+    - `updated_at` DATETIME - Last update timestamp
+  - **Document Number Series**:
+    - Added 'DIRECT_INVENTORY_TRANSFER' series with prefix 'DIT'
+- **Application Enhancements**:
+  - Added custom Jinja2 filter `from_json` for parsing JSON serial numbers in templates
+  - Integrated SAP B1 validation for item codes and warehouse/bin locations
+  - Automatic detection of serial/batch managed items via SAP API
+  - QC approval workflow before posting to SAP B1
+  - Dynamic form fields based on item management type
+- **Routes Added**: 
+  - `/direct-inventory-transfer/` - Index page with pagination
+  - `/direct-inventory-transfer/create` - Create new transfer
+  - `/direct-inventory-transfer/<id>` - Transfer detail view
+  - `/direct-inventory-transfer/<id>/add_item` - Add item via barcode
+  - `/direct-inventory-transfer/<id>/submit` - Submit for QC approval
+  - `/direct-inventory-transfer/<id>/approve` - QC approve and post to SAP
+  - `/direct-inventory-transfer/<id>/reject` - QC reject transfer
+  - `/direct-inventory-transfer/api/validate-item` - Validate item code from SAP
+  - `/direct-inventory-transfer/api/get-warehouses` - Fetch warehouse list
+  - `/direct-inventory-transfer/api/get-bins` - Fetch bin locations
+- **Notes**: 
+  - Fully integrated with SAP B1 Service Layer API
+  - Supports serial and batch number tracking
+  - QC approval workflow ensures data quality
+  - Barcode-driven scanning for warehouse efficiency
+  - Custom filter required to parse JSON serial numbers in templates
+
 ### 2025-10-15 - SAP B1 JSON Consolidation Fixes
 - **File**: `sap_integration.py` (create_purchase_delivery_note method)
 - **Description**: Fixed critical bugs in SAP B1 Purchase Delivery Note JSON generation
