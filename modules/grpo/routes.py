@@ -857,3 +857,78 @@ def validate_serial_unique(serial_number):
     except Exception as e:
         logging.error(f"Error validating serial number: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@grpo_bp.route('/api/generate-barcode-labels', methods=['POST'])
+@login_required
+def generate_barcode_labels_api():
+    """
+    API endpoint to generate barcode labels for batch items
+    Accepts: grpo_id, batch_number, expiration_date, number_of_bags, item_code, item_name
+    Returns: HTML with printable barcode labels or JSON with label data
+    """
+    try:
+        data = request.get_json()
+        
+        grpo_id = data.get('grpo_id')
+        batch_number = data.get('batch_number')
+        expiration_date = data.get('expiration_date')
+        number_of_bags = data.get('number_of_bags')
+        item_code = data.get('item_code')
+        item_name = data.get('item_name')
+        
+        if not all([grpo_id, batch_number, expiration_date, number_of_bags, item_code]):
+            return jsonify({
+                'success': False,
+                'error': 'Missing required parameters: grpo_id, batch_number, expiration_date, number_of_bags, item_code'
+            }), 400
+        
+        grpo_doc = GRPODocument.query.get_or_404(grpo_id)
+        
+        if grpo_doc.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({
+                'success': False,
+                'error': 'Access denied'
+            }), 403
+        
+        number_of_bags = int(number_of_bags)
+        if number_of_bags < 1 or number_of_bags > 1000:
+            return jsonify({
+                'success': False,
+                'error': 'Number of bags must be between 1 and 1000'
+            }), 400
+        
+        grn_date = grpo_doc.created_at.strftime('%Y-%m-%d')
+        
+        labels = []
+        for i in range(1, number_of_bags + 1):
+            label = {
+                'sequence': i,
+                'total': number_of_bags,
+                'sequence_text': f"{i} of {number_of_bags}",
+                'item_code': item_code,
+                'item_name': item_name or '',
+                'batch_number': batch_number,
+                'grn_date': grn_date,
+                'expiration_date': expiration_date,
+                'barcode_data': f"{item_code}-{batch_number}-{i}"
+            }
+            labels.append(label)
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'grpo_id': grpo_id,
+            'total_labels': number_of_bags
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid number format: {str(e)}'
+        }), 400
+    except Exception as e:
+        logging.error(f"Error generating barcode labels: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

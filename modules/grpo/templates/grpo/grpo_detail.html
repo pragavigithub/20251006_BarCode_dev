@@ -2,6 +2,41 @@
 
 {% block title %}GRPO Detail - {{ grpo_doc.po_number }}{% endblock %}
 
+{% block extra_styles %}
+<style>
+@media print {
+    .modal-header, .modal-footer, nav, .breadcrumb, .card-header .btn {
+        display: none !important;
+    }
+    
+    .modal-dialog {
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    .modal-content {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .card {
+        page-break-inside: avoid;
+        border: 1px solid #000 !important;
+        margin-bottom: 10px;
+    }
+    
+    .col-md-4 {
+        width: 33.333% !important;
+        float: left;
+    }
+    
+    body {
+        background: white;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
@@ -417,6 +452,21 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="number_of_bags" class="form-label">Number of Bags</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="number_of_bags" name="number_of_bags"
+                                               placeholder="Enter number of bags for label printing" min="1" max="1000">
+                                        <button class="btn btn-success" type="button" onclick="generateBarcodeLabels()" title="Generate barcode labels for bags">
+                                            <i data-feather="printer"></i> Generate Labels
+                                        </button>
+                                    </div>
+                                    <small class="form-text text-muted">Enter the number of bags to generate barcode labels (e.g., 10 will generate labels 1 of 10, 2 of 10, etc.)</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Serial Number Section (Hidden by default, shown for serial managed items) -->
@@ -435,6 +485,9 @@
 
                     <!-- Hidden field for batch numbers JSON -->
                     <input type="hidden" id="batch_numbers_json" name="batch_numbers_json">
+                    
+                    <!-- Hidden field for GRN date (for label generation) -->
+                    <input type="hidden" id="grn_date" value="{{ grpo_doc.created_at.strftime('%Y-%m-%d') }}">
 
                     <div class="mb-3">
                         <label for="barcode" class="form-label">Supplier Barcode</label>
@@ -450,8 +503,30 @@
     </div>
 </div>
 
+<!-- Barcode Labels Modal -->
+<div class="modal fade" id="barcodeLabelsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Batch Item Barcode Labels</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="barcodeLabelsContent">
+                <!-- Labels will be generated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">
+                    <i data-feather="printer"></i> Print Labels
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script>
 // Global variables - prevent duplicate declarations
 if (typeof selectedPoItemData === 'undefined') {
@@ -621,6 +696,98 @@ function printBatchBarcode() {
         </html>
     `);
     printWindow.document.close();
+}
+
+// Generate multiple barcode labels for bags
+function generateBarcodeLabels() {
+    const batchNumber = document.getElementById('batch_number').value || document.getElementById('batch_select').value;
+    const expirationDate = document.getElementById('expiration_date').value;
+    const numberOfBags = parseInt(document.getElementById('number_of_bags').value);
+    const itemCode = document.getElementById('item_code').value;
+    const itemName = document.getElementById('item_name').value;
+    const grnDate = document.getElementById('grn_date').value;
+    
+    if (!batchNumber) {
+        alert('Please enter or select a batch number first');
+        return;
+    }
+    
+    if (!expirationDate) {
+        alert('Please enter an expiration date');
+        return;
+    }
+    
+    if (!numberOfBags || numberOfBags < 1) {
+        alert('Please enter a valid number of bags (minimum 1)');
+        return;
+    }
+    
+    if (numberOfBags > 1000) {
+        alert('Maximum 1000 labels can be generated at once');
+        return;
+    }
+    
+    if (!grnDate) {
+        alert('GRN date not available. Please refresh the page.');
+        return;
+    }
+    
+    let labelsHTML = '<div class="row g-3">';
+    
+    for (let i = 1; i <= numberOfBags; i++) {
+        const barcodeId = `barcode_${i}`;
+        const sequenceText = `${i} of ${numberOfBags}`;
+        const barcodeData = `BATCH:${itemCode}-${batchNumber}-${i}`;
+        
+        labelsHTML += `
+            <div class="col-md-4 col-sm-6">
+                <div class="card border">
+                    <div class="card-body text-center p-3">
+                        <h6 class="mb-2"><strong>${itemCode}</strong></h6>
+                        <p class="mb-1 small">${itemName}</p>
+                        <svg id="${barcodeId}" class="mb-2"></svg>
+                        <div class="small">
+                            <strong>Batch:</strong> ${batchNumber}<br>
+                            <strong>GRN Date:</strong> ${grnDate}<br>
+                            <strong>Exp Date:</strong> ${expirationDate}<br>
+                            <strong>Bag:</strong> ${sequenceText}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    labelsHTML += '</div>';
+    
+    document.getElementById('barcodeLabelsContent').innerHTML = labelsHTML;
+    
+    const modal = new bootstrap.Modal(document.getElementById('barcodeLabelsModal'));
+    modal.show();
+    
+    document.getElementById('barcodeLabelsModal').addEventListener('shown.bs.modal', function() {
+        for (let i = 1; i <= numberOfBags; i++) {
+            const barcodeId = `barcode_${i}`;
+            const barcodeData = `${itemCode}-${batchNumber}-${i}`;
+            
+            try {
+                JsBarcode(`#${barcodeId}`, barcodeData, {
+                    format: "CODE128",
+                    width: 2,
+                    height: 50,
+                    displayValue: true,
+                    fontSize: 12,
+                    margin: 5
+                });
+            } catch (error) {
+                console.error(`Error generating barcode ${i}:`, error);
+            }
+        }
+        
+        feather.replace();
+    }, { once: true });
+    
+    console.log(`Generated ${numberOfBags} barcode labels for batch: ${batchNumber}`);
 }
 
 // Handle warehouse selection
