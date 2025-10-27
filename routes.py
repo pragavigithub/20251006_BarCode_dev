@@ -116,6 +116,40 @@ def get_doc_entry():
             'error': str(e)
         }), 500
 
+@app.route('/api/get-po-docnums', methods=['GET'])
+@login_required
+def get_po_docnums():
+    """Get open PO document numbers for a specific series"""
+    try:
+        series = request.args.get('series')
+        
+        if not series:
+            return jsonify({
+                'success': False,
+                'error': 'series is required'
+            }), 400
+        
+        sap = SAPIntegration()
+        doc_list = sap.get_open_po_docnums(series)
+        
+        if doc_list:
+            return jsonify({
+                'success': True,
+                'documents': doc_list
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'documents': []
+            })
+            
+    except Exception as e:
+        logging.error(f"Error in get_po_docnums API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/get-invt-series', methods=['GET'])
 def get_invt_series():
     """Get Inventory Transfer document series for dropdown selection"""
