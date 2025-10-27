@@ -26,6 +26,7 @@ if __name__ == "__main__":
                 logging.info("❌ License validation failed:", info)
                 sys.exit(1)
             else:
+
                 logging.info("✅ License validated Successfully")
                 print("✅ License validated Successfully")
         except Exception as e:
