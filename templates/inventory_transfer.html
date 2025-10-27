@@ -204,12 +204,14 @@
                     <div class="mb-3">
                         <label for="doc_num" class="form-label">Document Number <span class="text-danger">*</span></label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="doc_num" name="doc_num" placeholder="Enter DocNum" required>
+                            <select class="form-select" id="doc_num" name="doc_num" required disabled>
+                                <option value="">Select Series First</option>
+                            </select>
                             <button class="btn btn-outline-secondary" type="button" onclick="scanDocNum()">
                                 <i data-feather="camera"></i> Scan
                             </button>
                         </div>
-                        <small class="form-text text-muted">Enter the document number (DocNum)</small>
+                        <small class="form-text text-muted">Select the document series first</small>
                     </div>
 
                     <input type="hidden" id="transfer_request_number" name="transfer_request_number">
@@ -277,10 +279,42 @@ async function loadInvtSeries() {
     }
 }
 
+// Load inventory transfer document numbers when series is selected
+async function loadInvtDocNumbers(series) {
+    const docNumSelect = document.getElementById('doc_num');
+    docNumSelect.innerHTML = '<option value="">Loading...</option>';
+    docNumSelect.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/get-invt-docnums?series=${series}`);
+        const data = await response.json();
+        
+        if (data.success && data.documents && data.documents.length > 0) {
+            docNumSelect.innerHTML = '<option value="">Select Document Number</option>';
+            data.documents.forEach(doc => {
+                const option = document.createElement('option');
+                option.value = doc.DocNum;
+                option.textContent = `${doc.DocNum} - ${doc.SeriesName || 'Series ' + doc.Series}`;
+                option.setAttribute('data-doc-entry', doc.DocEntry);
+                option.setAttribute('data-series', doc.Series);
+                docNumSelect.appendChild(option);
+            });
+            docNumSelect.disabled = false;
+        } else {
+            docNumSelect.innerHTML = '<option value="">No Open Documents Found</option>';
+            docNumSelect.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error loading Inventory Transfer document numbers:', error);
+        docNumSelect.innerHTML = '<option value="">Error Loading Documents</option>';
+        docNumSelect.disabled = true;
+    }
+}
+
 // When both series and doc_num are entered, fetch DocEntry
 async function fetchDocEntry() {
     const series = document.getElementById('invt_series').value;
-    const docNum = document.getElementById('doc_num').value.trim();
+    const docNum = document.getElementById('doc_num').value;
     
     if (!series || !docNum) {
         return;
@@ -349,8 +383,20 @@ function showValidationResult(type, message) {
 }
 
 // Event listeners for series and doc_num changes
-document.getElementById('invt_series').addEventListener('change', fetchDocEntry);
-document.getElementById('doc_num').addEventListener('blur', fetchDocEntry);
+document.getElementById('invt_series').addEventListener('change', function() {
+    const series = this.value;
+    const docNumSelect = document.getElementById('doc_num');
+    
+    if (series) {
+        loadInvtDocNumbers(series);
+    } else {
+        docNumSelect.innerHTML = '<option value="">Select Series First</option>';
+        docNumSelect.disabled = true;
+        document.getElementById('transferValidationResult').style.display = 'none';
+    }
+});
+
+document.getElementById('doc_num').addEventListener('change', fetchDocEntry);
 
 function scanDocNum() {
     const container = document.getElementById('transferScannerContainer');
@@ -359,12 +405,34 @@ function scanDocNum() {
     container.style.display = 'block';
     
     startBarcodeScanner('transferScanVideo', function(code) {
-        document.getElementById('doc_num').value = code;
         container.style.display = 'none';
         stopBarcodeScanner();
         
-        // Trigger DocEntry fetch
-        fetchDocEntry();
+        // Try to find and select the scanned DocNum in the dropdown
+        const docNumSelect = document.getElementById('doc_num');
+        let found = false;
+        
+        for (let i = 0; i < docNumSelect.options.length; i++) {
+            if (docNumSelect.options[i].value == code) {
+                docNumSelect.selectedIndex = i;
+                found = true;
+                
+                // Trigger validation
+                fetchDocEntry();
+                break;
+            }
+        }
+        
+        if (!found && code) {
+            const resultDiv = document.getElementById('transferValidationResult');
+            resultDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>Document ${code} not found in the current series.</strong>
+                    <br>Please select the correct series first or verify the document number.
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        }
     });
 }
 

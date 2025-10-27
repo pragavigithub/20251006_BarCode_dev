@@ -368,6 +368,33 @@ class SAPIntegration:
             logging.error(f"Error fetching open PO documents for series {series}: {str(e)}")
             return []
 
+    def get_open_invt_docnums(self, series):
+        """Get open Inventory Transfer document numbers for a specific series using SAP SQLQuery"""
+        if not self.ensure_logged_in():
+            logging.warning("SAP B1 not available, returning empty list")
+            return []
+
+        try:
+            url = f"{self.base_url}/b1s/v1/SQLQueries('Get_Open_INVTRNF_DocNum')/List"
+            payload = {
+                "ParamList": f"series='{series}'"
+            }
+            
+            response = self.session.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                doc_list = data.get('value', [])
+                logging.info(f"✅ Retrieved {len(doc_list)} open Inventory Transfer documents for series {series}")
+                return doc_list
+            else:
+                logging.warning(f"Failed to get open Inventory Transfer documents: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error fetching open Inventory Transfer documents for series {series}: {str(e)}")
+            return []
+
     def get_purchase_order_by_doc_entry(self, doc_entry):
         """Get purchase order details from SAP B1 using DocEntry"""
         if not self.ensure_logged_in():
