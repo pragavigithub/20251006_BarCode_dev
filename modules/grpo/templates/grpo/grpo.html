@@ -325,14 +325,6 @@ async function validatePO(poNumber) {
     }
 }
 
-// Auto-validate when PO number is entered manually
-document.getElementById('po_number').addEventListener('blur', function() {
-    const poNumber = this.value.trim();
-    if (poNumber) {
-        validatePO(poNumber);
-    }
-});
-
 // Clean up scanner when modal is closed
 document.getElementById('createGRPOModal').addEventListener('hidden.bs.modal', function () {
     stopBarcodeScanner();
