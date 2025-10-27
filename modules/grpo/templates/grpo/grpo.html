@@ -249,12 +249,37 @@ function scanPO() {
     container.style.display = 'block';
     
     startBarcodeScanner('poScanVideo', function(code) {
-        document.getElementById('po_number').value = code;
         container.style.display = 'none';
         stopBarcodeScanner();
         
-        // Validate PO
-        validatePO(code);
+        // Try to find and select the scanned PO number in the dropdown
+        const docNumSelect = document.getElementById('po_number');
+        let found = false;
+        
+        for (let i = 0; i < docNumSelect.options.length; i++) {
+            if (docNumSelect.options[i].value == code) {
+                docNumSelect.selectedIndex = i;
+                found = true;
+                
+                // Trigger validation
+                const series = document.getElementById('po_series').value;
+                if (series) {
+                    getDocEntry(series, code);
+                }
+                break;
+            }
+        }
+        
+        if (!found && code) {
+            const resultDiv = document.getElementById('poValidationResult');
+            resultDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>PO ${code} not found in the current series.</strong>
+                    <br>Please select the correct series first or verify the PO number.
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        }
     });
 }
 
@@ -339,7 +364,7 @@ function loadPOSeries() {
         });
 }
 
-document.getElementById('po_number').addEventListener('blur', function() {
+document.getElementById('po_number').addEventListener('change', function() {
     const series = document.getElementById('po_series').value;
     const docNum = this.value;
     
@@ -350,12 +375,47 @@ document.getElementById('po_number').addEventListener('blur', function() {
 
 document.getElementById('po_series').addEventListener('change', function() {
     const series = this.value;
-    const docNum = document.getElementById('po_number').value;
     
-    if (series && docNum) {
-        getDocEntry(series, docNum);
+    if (series) {
+        loadPODocNumbers(series);
+    } else {
+        const docNumSelect = document.getElementById('po_number');
+        docNumSelect.innerHTML = '<option value="">Select Series First</option>';
+        docNumSelect.disabled = true;
+        document.getElementById('poValidationResult').style.display = 'none';
     }
 });
+
+function loadPODocNumbers(series) {
+    const docNumSelect = document.getElementById('po_number');
+    docNumSelect.innerHTML = '<option value="">Loading...</option>';
+    docNumSelect.disabled = true;
+    
+    fetch(`/api/get-po-docnums?series=${series}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.documents && data.documents.length > 0) {
+                docNumSelect.innerHTML = '<option value="">Select Document Number</option>';
+                data.documents.forEach(doc => {
+                    const option = document.createElement('option');
+                    option.value = doc.DocNum;
+                    option.textContent = `${doc.DocNum} - ${doc.CardName} (${doc.CardCode})`;
+                    option.setAttribute('data-doc-entry', doc.DocEntry);
+                    option.setAttribute('data-series', doc.Series);
+                    docNumSelect.appendChild(option);
+                });
+                docNumSelect.disabled = false;
+            } else {
+                docNumSelect.innerHTML = '<option value="">No Open POs Found</option>';
+                docNumSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading PO document numbers:', error);
+            docNumSelect.innerHTML = '<option value="">Error Loading Documents</option>';
+            docNumSelect.disabled = true;
+        });
+}
 
 function getDocEntry(series, docNum) {
     fetch('/api/get-doc-entry', {
