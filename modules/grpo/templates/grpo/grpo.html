@@ -204,12 +204,14 @@
                     <div class="mb-3">
                         <label for="po_number" class="form-label">PO Document Number</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="po_number" name="po_number" required>
+                            <select class="form-select" id="po_number" name="po_number" required disabled>
+                                <option value="">Select Series First</option>
+                            </select>
                             <button class="btn btn-outline-secondary" type="button" onclick="scanPO()">
                                 <i data-feather="camera"></i> Scan
                             </button>
                         </div>
-                        <small class="text-muted">Enter the document number</small>
+                        <small class="text-muted">Select the purchase order series first</small>
                     </div>
                     
                     <div class="scanner-container" id="poScannerContainer" style="display: none;">
