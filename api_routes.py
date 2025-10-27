@@ -243,3 +243,36 @@ def register_api_routes(app):
                 'success': False,
                 'error': str(e)
             }), 500
+
+    @app.route('/api/get-po-docnums', methods=['GET'])
+    def get_po_docnums():
+        """Get open PO document numbers for a specific series"""
+        try:
+            series = request.args.get('series')
+            
+            if not series:
+                return jsonify({
+                    'success': False,
+                    'error': 'series is required'
+                }), 400
+            
+            sap = SAPIntegration()
+            doc_list = sap.get_open_po_docnums(series)
+            
+            if doc_list:
+                return jsonify({
+                    'success': True,
+                    'documents': doc_list
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'documents': []
+                })
+                
+        except Exception as e:
+            logging.error(f"Error in get_po_docnums API: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
