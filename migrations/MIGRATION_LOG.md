@@ -37,6 +37,28 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
+### 2025-10-28 - GRPO Batch Item QR Label Enhancement
+- **Files**: `modules/grpo/templates/grpo/grpo_detail.html`
+- **Description**: Enhanced batch item barcode labels to generate individual QR codes for each bag instead of linear barcodes
+- **Status**: ✅ Completed
+- **Applied By**: Replit Agent
+- **Changes**:
+  - **Frontend Changes Only** (No database migration required):
+    - Modified `generateBarcodeLabels()` JavaScript function to use QR codes instead of CODE128 linear barcodes
+    - Changed barcode rendering from SVG (JsBarcode) to canvas/div (QRCode.js)
+    - Each bag now gets a unique QR code with format: `{itemCode}-{batchNumber}-{bagNumber}`
+    - QR codes are 128x128 pixels with high error correction level
+    - Added barcode data text display below each QR code for easy identification
+- **Functionality**:
+  - When user enters "Number of Bags" (e.g., 8), system generates 8 separate QR labels
+  - Each label includes: Item Code, Item Name, QR Code, Batch Number, GRN Date, Expiration Date, and Bag sequence (e.g., "1 of 8")
+  - Labels are printable and displayed in a responsive 3-column grid
+- **Database Requirements**: None - UI enhancement only
+- **Notes**: 
+  - Uses existing qrcode.js library already loaded in the template
+  - No backend API changes required
+  - Maintains existing barcode data format for compatibility
+
 ### 2025-10-26 - QC Workflow Enforcement for Sales Delivery and Direct Inventory Transfer
 - **Files**: `modules/sales_delivery/routes.py`, `routes.py`, `templates/edit_user.html`
 - **Description**: Enforced QC approval workflow to ensure SAP B1 posting only occurs after QC approval for both Sales Delivery and Direct Inventory Transfer modules

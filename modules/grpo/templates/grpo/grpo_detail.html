@@ -735,9 +735,9 @@ function generateBarcodeLabels() {
     let labelsHTML = '<div class="row g-3">';
     
     for (let i = 1; i <= numberOfBags; i++) {
-        const barcodeId = `barcode_${i}`;
+        const qrcodeId = `qrcode_${i}`;
         const sequenceText = `${i} of ${numberOfBags}`;
-        const barcodeData = `BATCH:${itemCode}-${batchNumber}-${i}`;
+        const barcodeData = `${itemCode}-${batchNumber}-${i}`;
         
         labelsHTML += `
             <div class="col-md-4 col-sm-6">
@@ -745,7 +745,8 @@ function generateBarcodeLabels() {
                     <div class="card-body text-center p-3">
                         <h6 class="mb-2"><strong>${itemCode}</strong></h6>
                         <p class="mb-1 small">${itemName}</p>
-                        <svg id="${barcodeId}" class="mb-2"></svg>
+                        <div id="${qrcodeId}" class="mb-2 d-flex justify-content-center"></div>
+                        <p class="small mb-1"><strong>${barcodeData}</strong></p>
                         <div class="small">
                             <strong>Batch:</strong> ${batchNumber}<br>
                             <strong>GRN Date:</strong> ${grnDate}<br>
@@ -767,27 +768,27 @@ function generateBarcodeLabels() {
     
     document.getElementById('barcodeLabelsModal').addEventListener('shown.bs.modal', function() {
         for (let i = 1; i <= numberOfBags; i++) {
-            const barcodeId = `barcode_${i}`;
+            const qrcodeId = `qrcode_${i}`;
             const barcodeData = `${itemCode}-${batchNumber}-${i}`;
             
             try {
-                JsBarcode(`#${barcodeId}`, barcodeData, {
-                    format: "CODE128",
-                    width: 2,
-                    height: 50,
-                    displayValue: true,
-                    fontSize: 12,
-                    margin: 5
+                new QRCode(document.getElementById(qrcodeId), {
+                    text: barcodeData,
+                    width: 128,
+                    height: 128,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
                 });
             } catch (error) {
-                console.error(`Error generating barcode ${i}:`, error);
+                console.error(`Error generating QR code ${i}:`, error);
             }
         }
         
         feather.replace();
     }, { once: true });
     
-    console.log(`Generated ${numberOfBags} barcode labels for batch: ${batchNumber}`);
+    console.log(`Generated ${numberOfBags} QR code labels for batch: ${batchNumber}`);
 }
 
 // Handle warehouse selection
