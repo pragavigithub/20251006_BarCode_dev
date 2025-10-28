@@ -629,7 +629,6 @@ def manage_serial_numbers(item_id):
             'expiry_date': sn.expiry_date.isoformat() if sn.expiry_date else None,
             'manufacture_date': sn.manufacture_date.isoformat() if sn.manufacture_date else None,
             'notes': sn.notes,
-            'barcode': sn.barcode,
             'quantity': float(sn.quantity),
             'base_line_number': sn.base_line_number
         } for sn in item.serial_numbers]
