@@ -60,6 +60,9 @@ class GRPOItem(db.Model):
     serial_required = db.Column(db.String(1), default='N')  # Y or N
     manage_method = db.Column(db.String(1), default='N')  # A (Average), R (FIFO/Release), N (None)
     
+    # Packaging information for QR label generation
+    number_of_bags = db.Column(db.Integer)  # Number of bags/packs for label generation
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

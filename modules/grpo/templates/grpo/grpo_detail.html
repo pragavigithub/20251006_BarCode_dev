@@ -489,6 +489,12 @@
                             </div>
                             <input type="hidden" id="serial_numbers_json" name="serial_numbers_json">
                         </div>
+                        <div class="mb-3">
+                            <label for="serial_number_of_bags" class="form-label">Number of Bags/Packs</label>
+                            <input type="number" class="form-control" id="serial_number_of_bags" name="serial_number_of_bags"
+                                   placeholder="Enter number of bags to pack serial items (optional)" min="1" max="1000">
+                            <small class="form-text text-muted">Specify how many bags/packs to generate QR labels for. If not specified, one label per serial number will be generated.</small>
+                        </div>
                     </div>
 
                     <!-- Hidden field for batch numbers JSON -->
@@ -1894,22 +1900,30 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
             
             const serialNumbers = data.serial_numbers;
             const grpoDetails = data.grpo_details;
+            const itemDetails = data.item_details || {};
             
-            // Ask user for number of bags to generate QR labels for
+            // Use stored number_of_bags if available, otherwise default to total serial numbers
             const totalSerials = serialNumbers.length;
-            const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total serial numbers: ${totalSerials})`, totalSerials);
+            let bagsToGenerate = itemDetails.number_of_bags || totalSerials;
             
-            if (!numberOfBagsInput) {
-                return;
+            // If number_of_bags was not set when adding the item, prompt the user
+            if (!itemDetails.number_of_bags) {
+                const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total serial numbers: ${totalSerials})`, totalSerials);
+                
+                if (!numberOfBagsInput) {
+                    return;
+                }
+                
+                const numberOfBags = parseInt(numberOfBagsInput, 10);
+                if (isNaN(numberOfBags) || numberOfBags <= 0) {
+                    alert('Please enter a valid positive number for bags');
+                    return;
+                }
+                
+                bagsToGenerate = Math.min(numberOfBags, totalSerials);
+            } else {
+                bagsToGenerate = Math.min(bagsToGenerate, totalSerials);
             }
-            
-            const numberOfBags = parseInt(numberOfBagsInput, 10);
-            if (isNaN(numberOfBags) || numberOfBags <= 0) {
-                alert('Please enter a valid positive number for bags');
-                return;
-            }
-            
-            const bagsToGenerate = Math.min(numberOfBags, totalSerials);
             
             const modal = new bootstrap.Modal(document.getElementById('serialQRLabelsModal'));
             const container = document.getElementById('serialQRLabelsContainer');
@@ -2022,22 +2036,33 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
             
             const batchNumbers = data.batch_numbers;
             const grpoDetails = data.grpo_details;
+            const itemDetails = data.item_details || {};
             
-            // Ask user for number of bags to generate QR labels for
+            // Calculate total quantity from batches
             const totalQuantity = batchNumbers.reduce((sum, batch) => sum + parseFloat(batch.quantity), 0);
-            const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total received quantity: ${totalQuantity})`, Math.floor(totalQuantity));
             
-            if (!numberOfBagsInput) {
-                return;
+            // Use stored number_of_bags if available, otherwise prompt user
+            let bagsToGenerate = itemDetails.number_of_bags;
+            
+            // If number_of_bags was not set when adding the item, prompt the user
+            if (!itemDetails.number_of_bags) {
+                const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total received quantity: ${totalQuantity})`, Math.floor(totalQuantity));
+                
+                if (!numberOfBagsInput) {
+                    return;
+                }
+                
+                const numberOfBags = parseInt(numberOfBagsInput, 10);
+                if (isNaN(numberOfBags) || numberOfBags <= 0) {
+                    alert('Please enter a valid positive number for bags');
+                    return;
+                }
+                
+                bagsToGenerate = numberOfBags;
             }
             
-            const numberOfBags = parseInt(numberOfBagsInput, 10);
-            if (isNaN(numberOfBags) || numberOfBags <= 0) {
-                alert('Please enter a valid positive number for bags');
-                return;
-            }
-            
-            const bagsToGenerate = numberOfBags;
+            // Calculate quantity per bag
+            const qtyPerBag = Math.ceil(totalQuantity / bagsToGenerate);
             
             const modal = new bootstrap.Modal(document.getElementById('serialQRLabelsModal'));
             const container = document.getElementById('serialQRLabelsContainer');
@@ -2072,7 +2097,7 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
                             po: grpoDetails.po_number,
                             item: itemCode,
                             batch: batch.batch_number,
-                            qty: 1,
+                            qty: qtyPerBag,
                             pack: `${packNum} of ${numberOfPacks}`,
                             grn_date: grpoDetails.grn_date,
                             exp_date: batch.expiry_date || 'N/A'
@@ -2090,7 +2115,7 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
                                 <div class="small text-start">
                                     <strong>PO:</strong> ${grpoDetails.po_number}<br>
                                     <strong>Batch:</strong> ${batch.batch_number}<br>
-                                    <strong>Qty:</strong> 1<br>
+                                    <strong>Qty:</strong> ${qtyPerBag}<br>
                                     <strong>Pack:</strong> ${packNum} of ${numberOfPacks}<br>
                                     <strong>GRN Date:</strong> ${grpoDetails.grn_date}<br>
                                     <strong>Exp Date:</strong> ${batch.expiry_date || 'N/A'}

@@ -180,6 +180,7 @@ class MySQLConsolidatedMigration:
                     batch_required VARCHAR(1) DEFAULT 'N',
                     serial_required VARCHAR(1) DEFAULT 'N',
                     manage_method VARCHAR(1) DEFAULT 'N',
+                    number_of_bags INT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (grpo_id) REFERENCES grpo_documents(id) ON DELETE CASCADE,

@@ -286,6 +286,8 @@ def add_grpo_item(grpo_id):
         expiry_date = request.form.get('expiry_date')
         serial_numbers_json = request.form.get('serial_numbers_json', '')
         batch_numbers_json = request.form.get('batch_numbers_json', '')
+        number_of_bags = request.form.get('number_of_bags') or request.form.get('serial_number_of_bags')
+        number_of_bags = int(number_of_bags) if number_of_bags else None
         
         if not all([item_code, item_name, quantity > 0]):
             flash('Item Code, Item Name, and Quantity are required', 'error')
@@ -341,6 +343,7 @@ def add_grpo_item(grpo_id):
             bin_location=bin_location,
             batch_number=batch_number,
             expiry_date=expiry_date_obj,
+            number_of_bags=number_of_bags,
             qc_status='pending'
         )
         
@@ -639,10 +642,19 @@ def manage_serial_numbers(item_id):
             'doc_number': grpo.doc_number or 'N/A'
         }
         
+        # Include item details for packaging
+        item_details = {
+            'number_of_bags': item.number_of_bags,
+            'quantity': float(item.quantity),
+            'item_code': item.item_code,
+            'item_name': item.item_name
+        }
+        
         return jsonify({
             'success': True, 
             'serial_numbers': serials,
-            'grpo_details': grpo_details
+            'grpo_details': grpo_details,
+            'item_details': item_details
         })
     
     elif request.method == 'POST':
@@ -761,7 +773,27 @@ def manage_batch_numbers(item_id):
             'barcode': bn.barcode
         } for bn in item.batch_numbers]
         
-        return jsonify({'success': True, 'batch_numbers': batches})
+        # Include item details for packaging
+        grpo = item.grpo_document
+        item_details = {
+            'number_of_bags': item.number_of_bags,
+            'quantity': float(item.quantity),
+            'item_code': item.item_code,
+            'item_name': item.item_name
+        }
+        
+        grpo_details = {
+            'po_number': grpo.po_number or 'N/A',
+            'grn_date': grpo.created_at.strftime('%Y-%m-%d') if grpo.created_at else 'N/A',
+            'doc_number': grpo.doc_number or 'N/A'
+        }
+        
+        return jsonify({
+            'success': True, 
+            'batch_numbers': batches,
+            'item_details': item_details,
+            'grpo_details': grpo_details
+        })
     
     elif request.method == 'POST':
         # Add new batch number
