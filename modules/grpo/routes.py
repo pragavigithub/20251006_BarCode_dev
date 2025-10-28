@@ -631,7 +631,19 @@ def manage_serial_numbers(item_id):
             'base_line_number': sn.base_line_number
         } for sn in item.serial_numbers]
         
-        return jsonify({'success': True, 'serial_numbers': serials})
+        # Include GRPO document details for QR labels
+        grpo = item.grpo_document
+        grpo_details = {
+            'po_number': grpo.po_number or 'N/A',
+            'grn_date': grpo.created_at.strftime('%Y-%m-%d') if grpo.created_at else 'N/A',
+            'doc_number': grpo.doc_number or 'N/A'
+        }
+        
+        return jsonify({
+            'success': True, 
+            'serial_numbers': serials,
+            'grpo_details': grpo_details
+        })
     
     elif request.method == 'POST':
         # Add new serial number
