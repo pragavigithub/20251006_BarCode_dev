@@ -286,11 +286,11 @@
                                     </td>
                                     <td>
                                         {% if item.serial_numbers %}
-                                        <button class="btn btn-sm btn-primary" onclick="generateSerialQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                        <button class="btn btn-sm btn-primary" onclick="generateSerialQRLabels({{ item.id }}, '{{ item.item_code }}', {{ item.item_name|tojson }})">
                                             <i data-feather="printer"></i> Print {{ item.serial_numbers|length }} QR Labels
                                         </button>
                                         {% elif item.batch_numbers %}
-                                        <button class="btn btn-sm btn-info" onclick="generateBatchQRLabels({{ item.id }}, '{{ item.item_code }}', '{{ item.item_name }}')">
+                                        <button class="btn btn-sm btn-info" onclick="generateBatchQRLabels({{ item.id }}, '{{ item.item_code }}', {{ item.item_name|tojson }})">
                                             <i data-feather="printer"></i> Print Batch Labels
                                         </button>
                                         {% else %}
@@ -1883,16 +1883,20 @@ function waitForQRCode(callback, timeout = 5000) {
 
 // Generate QR labels for all serial numbers with comprehensive tracking data
 function generateSerialQRLabels(itemId, itemCode, itemName) {
+    console.log('generateSerialQRLabels called with:', { itemId, itemCode, itemName });
+    
     fetch(`/grpo/items/${itemId}/serial-numbers`, {
         credentials: 'same-origin'
     })
         .then(response => {
+            console.log('Serial numbers response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            console.log('Serial numbers data received:', data);
             if (!data.success || !data.serial_numbers || data.serial_numbers.length === 0) {
                 alert('No serial numbers found for this item');
                 return;
