@@ -1902,28 +1902,12 @@ function generateSerialQRLabels(itemId, itemCode, itemName) {
             const grpoDetails = data.grpo_details;
             const itemDetails = data.item_details || {};
             
-            // Use stored number_of_bags if available, otherwise default to total serial numbers
+            // Use stored number_of_bags from GRN creation time, otherwise default to total serial numbers
             const totalSerials = serialNumbers.length;
             let bagsToGenerate = itemDetails.number_of_bags || totalSerials;
             
-            // If number_of_bags was not set when adding the item, prompt the user
-            if (!itemDetails.number_of_bags) {
-                const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total serial numbers: ${totalSerials})`, totalSerials);
-                
-                if (!numberOfBagsInput) {
-                    return;
-                }
-                
-                const numberOfBags = parseInt(numberOfBagsInput, 10);
-                if (isNaN(numberOfBags) || numberOfBags <= 0) {
-                    alert('Please enter a valid positive number for bags');
-                    return;
-                }
-                
-                bagsToGenerate = Math.min(numberOfBags, totalSerials);
-            } else {
-                bagsToGenerate = Math.min(bagsToGenerate, totalSerials);
-            }
+            // Ensure we don't generate more labels than serial numbers available
+            bagsToGenerate = Math.min(bagsToGenerate, totalSerials);
             
             const modal = new bootstrap.Modal(document.getElementById('serialQRLabelsModal'));
             const container = document.getElementById('serialQRLabelsContainer');
@@ -2041,25 +2025,14 @@ function generateBatchQRLabels(itemId, itemCode, itemName) {
             // Calculate total quantity from batches
             const totalQuantity = batchNumbers.reduce((sum, batch) => sum + parseFloat(batch.quantity), 0);
             
-            // Use stored number_of_bags if available, otherwise prompt user
-            let bagsToGenerate = itemDetails.number_of_bags;
-            
-            // If number_of_bags was not set when adding the item, prompt the user
-            if (!itemDetails.number_of_bags) {
-                const numberOfBagsInput = prompt(`Enter number of bags/packs to generate QR labels for:\n\n(Total received quantity: ${totalQuantity})`, Math.floor(totalQuantity));
-                
-                if (!numberOfBagsInput) {
-                    return;
-                }
-                
-                const numberOfBags = parseInt(numberOfBagsInput, 10);
-                if (isNaN(numberOfBags) || numberOfBags <= 0) {
-                    alert('Please enter a valid positive number for bags');
-                    return;
-                }
-                
-                bagsToGenerate = numberOfBags;
+            // Defensive check: exit if no quantity to label
+            if (totalQuantity <= 0) {
+                alert('No quantity available to generate labels');
+                return;
             }
+            
+            // Use stored number_of_bags from GRN creation time, otherwise default to at least 1
+            let bagsToGenerate = itemDetails.number_of_bags || Math.max(1, Math.ceil(totalQuantity));
             
             // Calculate quantity per bag
             const qtyPerBag = Math.ceil(totalQuantity / bagsToGenerate);
