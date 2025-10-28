@@ -257,13 +257,21 @@
                                     <td>
                                         {% if grpo_doc.status in ['draft', 'rejected'] %}
                                         <input type="date" class="form-control form-control-sm"
-                                               value="{{ item.expiration_date.strftime('%Y-%m-%d') if item.expiration_date else '' }}"
+                                               value="{% if item.batch_numbers and item.batch_numbers[0].expiry_date %}{{ item.batch_numbers[0].expiry_date.strftime('%Y-%m-%d') }}{% elif item.serial_numbers and item.serial_numbers[0].expiry_date %}{{ item.serial_numbers[0].expiry_date.strftime('%Y-%m-%d') }}{% elif item.expiry_date %}{{ item.expiry_date.strftime('%Y-%m-%d') }}{% endif %}"
                                                data-item-id="{{ item.id }}"
                                                data-field="expiration_date"
                                                onchange="updateField(this)"
                                                style="width: 140px;">
                                         {% else %}
-                                        {{ item.expiration_date.strftime('%Y-%m-%d') if item.expiration_date else '-' }}
+                                        {% if item.batch_numbers and item.batch_numbers[0].expiry_date %}
+                                        {{ item.batch_numbers[0].expiry_date.strftime('%d-%m-%Y') }}
+                                        {% elif item.serial_numbers and item.serial_numbers[0].expiry_date %}
+                                        {{ item.serial_numbers[0].expiry_date.strftime('%d-%m-%Y') }}
+                                        {% elif item.expiry_date %}
+                                        {{ item.expiry_date.strftime('%d-%m-%Y') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
                                         {% endif %}
                                     </td>
 
