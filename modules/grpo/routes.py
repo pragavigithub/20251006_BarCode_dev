@@ -531,7 +531,7 @@ def get_serial_numbers(item_id):
 @grpo_bp.route('/items/<int:item_id>/batch-numbers', methods=['GET'])
 @login_required
 def get_batch_numbers(item_id):
-    """Get all batch numbers for a GRPO item"""
+    """Get all batch numbers for a GRPO item with GRPO document details"""
     try:
         item = GRPOItem.query.get_or_404(item_id)
         grpo = item.grpo_document
@@ -553,7 +553,14 @@ def get_batch_numbers(item_id):
         return jsonify({
             'success': True,
             'batch_numbers': batch_numbers,
-            'count': len(batch_numbers)
+            'count': len(batch_numbers),
+            'grpo_details': {
+                'po_number': grpo.po_number,
+                'grn_date': grpo.created_at.strftime('%Y-%m-%d'),
+                'item_code': item.item_code,
+                'item_name': item.item_name,
+                'received_quantity': float(item.quantity)
+            }
         })
         
     except Exception as e:

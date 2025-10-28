@@ -37,27 +37,51 @@ This file tracks all database schema changes chronologically. Each migration rep
 ## Future Migrations
 Add new migrations below in reverse chronological order (newest first).
 
-### 2025-10-28 - GRPO Batch Item QR Label Enhancement
-- **Files**: `modules/grpo/templates/grpo/grpo_detail.html`
-- **Description**: Enhanced batch item barcode labels to generate individual QR codes for each bag instead of linear barcodes
+### 2025-10-28 - GRPO Comprehensive QR Label System for Batch Items
+- **Files**: `modules/grpo/routes.py`, `modules/grpo/templates/grpo/grpo_detail.html`
+- **Description**: Complete overhaul of QR label generation for batch items - now generates multiple QR codes based on received quantity with comprehensive tracking information
 - **Status**: ✅ Completed
 - **Applied By**: Replit Agent
 - **Changes**:
-  - **Frontend Changes Only** (No database migration required):
-    - Modified `generateBarcodeLabels()` JavaScript function to use QR codes instead of CODE128 linear barcodes
-    - Changed barcode rendering from SVG (JsBarcode) to canvas/div (QRCode.js)
-    - Each bag now gets a unique QR code with format: `{itemCode}-{batchNumber}-{bagNumber}`
-    - QR codes are 128x128 pixels with high error correction level
-    - Added barcode data text display below each QR code for easy identification
+  - **Backend Changes** (`modules/grpo/routes.py`):
+    - Modified `get_batch_numbers()` route to return GRPO document details
+    - Added fields: po_number, grn_date, item_code, item_name, received_quantity
+    - Enables frontend to generate comprehensive QR codes with complete tracking data
+  - **Frontend Changes** (`modules/grpo/templates/grpo/grpo_detail.html`):
+    - **Phase 1**: Modified `generateBarcodeLabels()` to use QR codes instead of CODE128 barcodes
+    - **Phase 2**: Enhanced `generateBatchQRLabels()` to generate multiple QR codes per batch based on received quantity
+    - Each QR code now contains comprehensive JSON data with all tracking fields
+    - Added internal identification number system (format: GRN/{day}/{sequence})
+    - QR codes are 150x150 pixels with high error correction level
+- **QR Code Data Structure**:
+  ```json
+  {
+    "id": "GRN/28/0000000001",
+    "po": "252630003",
+    "item": "1248-114497",
+    "batch": "48348004225_001",
+    "qty": 1,
+    "pack": "1 of 10",
+    "grn_date": "2025-10-28",
+    "exp_date": "2025-11-08"
+  }
+  ```
 - **Functionality**:
-  - When user enters "Number of Bags" (e.g., 8), system generates 8 separate QR labels
-  - Each label includes: Item Code, Item Name, QR Code, Batch Number, GRN Date, Expiration Date, and Bag sequence (e.g., "1 of 8")
-  - Labels are printable and displayed in a responsive 3-column grid
-- **Database Requirements**: None - UI enhancement only
+  - When user clicks "Print Batch Labels", system generates one QR code per unit of received quantity
+  - Example: If received quantity = 10, generates 10 QR codes labeled "1 of 10", "2 of 10", etc.
+  - Each label displays: Internal ID, PO Number, Item Code, Batch Number, Quantity, Pack sequence, GRN Date, Expiry Date
+  - When scanned, QR code reveals complete JSON data structure with all tracking information
+  - Labels are printable in a 3-column responsive grid layout
+- **Internal ID Format**:
+  - Pattern: `GRN/{day_of_month}/{10-digit_sequence}`
+  - Example: GRN/28/0000000001, GRN/28/0000000002, etc.
+  - Provides unique identification for each individual pack/unit
+- **Database Requirements**: None - uses existing schema, all enhancements are UI and API response improvements
 - **Notes**: 
-  - Uses existing qrcode.js library already loaded in the template
-  - No backend API changes required
-  - Maintains existing barcode data format for compatibility
+  - Backward compatible - existing batch data works without modification
+  - Uses existing qrcode.js library
+  - Comprehensive scanning capability - all data embedded in QR code
+  - Supports inventory tracking at individual pack level
 
 ### 2025-10-26 - QC Workflow Enforcement for Sales Delivery and Direct Inventory Transfer
 - **Files**: `modules/sales_delivery/routes.py`, `routes.py`, `templates/edit_user.html`
